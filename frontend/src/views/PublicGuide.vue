@@ -43,6 +43,7 @@ const activeTour = ref<TourView>()
 const activeStop = ref(0)
 const tourPaused = ref(false)
 const showCameras = ref(false)
+const showPoints = ref(true)
 const showTours = ref(!window.matchMedia('(max-width: 760px)').matches)
 const latestChatId = ref<number>()
 const messages = ref<ChatMessage[]>([])
@@ -150,6 +151,7 @@ async function applyCommand(response: ChatResponse) {
   } else if (command.type === 'CLEAR_ROUTE') {
     scene.value?.clearRoute()
   } else if (command.type === 'OPEN_CAMERAS') {
+    showPoints.value = true
     showCameras.value = true
   } else if (command.type === 'PAUSE_TOUR') {
     pauseTour()
@@ -171,6 +173,24 @@ function selectPoint(point: PointView) {
 function switchCamera(camera: CameraView) {
   scene.value?.setCamera(camera)
   showCameras.value = false
+}
+
+function isCompactLayout() {
+  return window.matchMedia('(max-width: 760px)').matches
+}
+
+function togglePoints() {
+  showPoints.value = !showPoints.value
+  if (showPoints.value && isCompactLayout()) {
+    showTours.value = false
+  }
+}
+
+function toggleTours() {
+  showTours.value = !showTours.value
+  if (showTours.value && isCompactLayout()) {
+    showPoints.value = false
+  }
 }
 
 function startTour(tour: TourView) {
@@ -318,29 +338,47 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
         </div>
       </header>
 
-      <aside class="location-rail" aria-label="校园点位索引">
+      <aside
+        id="points-panel"
+        class="location-rail"
+        :class="{ collapsed: !showPoints, 'chat-open': chatOpen }"
+        aria-label="校园点位索引"
+      >
         <div class="rail-heading">
           <span class="section-kicker">FIELD INDEX</span>
           <h1>校园点位</h1>
           <small>{{ data.points.length }} 个公开点位</small>
+          <button
+            class="collapse-button rail-collapse"
+            type="button"
+            :aria-expanded="showPoints"
+            aria-controls="points-panel"
+            :aria-label="showPoints ? '收起点位栏' : '展开点位栏'"
+            :title="showPoints ? '收起点位栏' : '展开点位栏'"
+            @click="togglePoints"
+          >
+            {{ showPoints ? '−' : '+' }}
+          </button>
         </div>
-        <ol>
-          <li v-for="(point, index) in data.points" :key="point.id">
-            <button
-              type="button"
-              :class="{ active: selectedPoint?.id === point.id }"
-              @click="selectPoint(point)"
-            >
-              <span class="point-number">{{ String(index + 1).padStart(2, '0') }}</span>
-              <span class="point-name">{{ point.name }}</span>
-              <span class="point-type">{{ point.category }}</span>
-            </button>
-          </li>
-        </ol>
-        <button class="camera-toggle" type="button" @click="showCameras = !showCameras">
-          {{ showCameras ? '收起机位' : '切换预置机位' }}
-          <span>↗</span>
-        </button>
+        <div v-if="showPoints" class="rail-body">
+          <ol>
+            <li v-for="(point, index) in data.points" :key="point.id">
+              <button
+                type="button"
+                :class="{ active: selectedPoint?.id === point.id }"
+                @click="selectPoint(point)"
+              >
+                <span class="point-number">{{ String(index + 1).padStart(2, '0') }}</span>
+                <span class="point-name">{{ point.name }}</span>
+                <span class="point-type">{{ point.category }}</span>
+              </button>
+            </li>
+          </ol>
+          <button class="camera-toggle" type="button" @click="showCameras = !showCameras">
+            {{ showCameras ? '收起机位' : '切换预置机位' }}
+            <span>↗</span>
+          </button>
+        </div>
       </aside>
 
       <div v-if="showCameras" class="camera-popover">
@@ -363,13 +401,26 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
         </button>
       </div>
 
-      <aside class="tour-rail" :class="{ collapsed: !showTours }" aria-label="精品游览路线">
+      <aside
+        id="tours-panel"
+        class="tour-rail"
+        :class="{ collapsed: !showTours }"
+        aria-label="精品游览路线"
+      >
         <header>
           <div>
             <span class="section-kicker">CURATED JOURNEYS</span>
             <h2>精品路线</h2>
           </div>
-          <button type="button" class="collapse-button" @click="showTours = !showTours">
+          <button
+            type="button"
+            class="collapse-button"
+            :aria-expanded="showTours"
+            aria-controls="tours-panel"
+            :aria-label="showTours ? '收起路线栏' : '展开路线栏'"
+            :title="showTours ? '收起路线栏' : '展开路线栏'"
+            @click="toggleTours"
+          >
             {{ showTours ? '−' : '+' }}
           </button>
         </header>
@@ -553,17 +604,41 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
   position: absolute;
   z-index: 15;
   top: 6.2rem;
-  bottom: calc(min(27rem, 48vh) + 1.2rem);
+  bottom: 1.2rem;
   left: 1.1rem;
   width: 16.2rem;
   overflow: auto;
   border-left: 1px solid rgb(217 181 101 / 34%);
   background: linear-gradient(90deg, rgb(3 19 21 / 82%), rgb(3 19 21 / 30%) 82%, transparent);
-  scrollbar-width: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(217 181 101 / 42%) transparent;
+  transition:
+    width 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    bottom 220ms ease;
+}
+
+.location-rail.chat-open:not(.collapsed) {
+  bottom: calc(min(27rem, 48vh) + 1.2rem);
+}
+
+.location-rail::-webkit-scrollbar,
+.tour-rail::-webkit-scrollbar {
+  width: 4px;
+}
+
+.location-rail::-webkit-scrollbar-thumb,
+.tour-rail::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgb(217 181 101 / 42%);
 }
 
 .rail-heading {
-  padding: 0.3rem 0.9rem 0.55rem;
+  position: relative;
+  padding: 0.3rem 2.4rem 0.55rem 0.9rem;
+}
+
+.rail-body {
+  min-height: 0;
 }
 
 .section-kicker {
@@ -677,6 +752,33 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
   cursor: pointer;
 }
 
+.collapse-button,
+.rail-collapse {
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.collapse-button:hover,
+.rail-collapse:hover {
+  color: var(--ivory);
+  border-color: rgb(217 181 101 / 48%);
+  background: rgb(217 181 101 / 8%);
+}
+
+.rail-collapse {
+  position: absolute;
+  top: 0.18rem;
+  right: 0.35rem;
+  display: grid;
+  width: 1.7rem;
+  height: 1.7rem;
+  place-items: center;
+  border: 1px solid rgb(222 211 183 / 16%);
+  line-height: 1;
+}
+
 .camera-popover > button {
   display: flex;
   width: 100%;
@@ -706,7 +808,47 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
   border-right: 1px solid rgb(217 181 101 / 34%);
   padding: 0.4rem 0 0.4rem 0.8rem;
   background: linear-gradient(270deg, rgb(3 19 21 / 82%), rgb(3 19 21 / 22%) 82%, transparent);
-  scrollbar-width: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(217 181 101 / 42%) transparent;
+  transition: width 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.location-rail.collapsed,
+.tour-rail.collapsed {
+  width: 3.05rem;
+  max-height: none;
+  overflow: hidden;
+  border: 1px solid rgb(217 181 101 / 30%);
+  padding: 0.35rem;
+  background: rgb(4 24 26 / 90%);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 26%);
+  backdrop-filter: blur(14px);
+}
+
+.location-rail.collapsed {
+  bottom: auto;
+}
+
+.location-rail.collapsed > .rail-heading,
+.tour-rail.collapsed > header {
+  display: grid;
+  justify-content: center;
+  padding: 0;
+  place-items: center;
+}
+
+.location-rail.collapsed > .rail-heading > :not(.rail-collapse),
+.tour-rail.collapsed > header > div {
+  display: none;
+}
+
+.location-rail.collapsed .rail-collapse,
+.tour-rail.collapsed .collapse-button {
+  position: static;
+  width: 100%;
+  height: 2rem;
+  border: 1px solid transparent;
+  font-size: 1.3rem;
 }
 
 .tour-rail > header {
@@ -946,11 +1088,19 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
 @media (max-width: 1080px) {
   .location-rail {
     width: 13rem;
+  }
+
+  .location-rail.chat-open:not(.collapsed) {
     bottom: calc(min(26rem, 48vh) + 1.2rem);
   }
 
   .tour-rail {
     width: 14.5rem;
+  }
+
+  .location-rail.collapsed,
+  .tour-rail.collapsed {
+    width: 3.05rem;
   }
 
   .guide-chat {
@@ -994,7 +1144,7 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
     top: 4.6rem;
     bottom: auto;
     left: 0.5rem;
-    width: calc(100vw - 4.9rem);
+    width: calc(100vw - 5.5rem);
     max-height: none;
     overflow: visible;
     border-left: 0;
@@ -1002,6 +1152,16 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
     padding-bottom: 0.35rem;
     background: rgb(3 19 21 / 82%);
     backdrop-filter: blur(12px);
+  }
+
+  .location-rail.chat-open {
+    bottom: auto;
+  }
+
+  .location-rail.collapsed {
+    width: 3.05rem;
+    padding: 0.35rem;
+    border: 1px solid rgb(217 181 101 / 30%);
   }
 
   .rail-heading {
@@ -1067,30 +1227,6 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
     max-height: 40vh;
     background: rgb(3 19 21 / 82%);
     backdrop-filter: blur(12px);
-  }
-
-  .tour-rail.collapsed {
-    width: 3rem;
-    max-height: none;
-    padding: 0.35rem;
-    border: 1px solid rgb(217 181 101 / 25%);
-    background: rgb(4 24 26 / 86%);
-    backdrop-filter: blur(14px);
-    overflow: hidden;
-  }
-
-  .tour-rail.collapsed > header {
-    justify-content: center;
-    padding: 0;
-  }
-
-  .tour-rail.collapsed > header > div {
-    display: none;
-  }
-
-  .tour-rail.collapsed .collapse-button {
-    width: 100%;
-    font-size: 1.35rem;
   }
 
   .tour-rail h2,
