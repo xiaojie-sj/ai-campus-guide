@@ -14,6 +14,7 @@ import com.hbeu.campusguide.dto.TourView;
 import com.hbeu.campusguide.dto.TtsRequest;
 import com.hbeu.campusguide.service.CatalogService;
 import com.hbeu.campusguide.service.ChatService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -32,6 +33,7 @@ import java.util.Map;
 /**
  * Public, unauthenticated campus guide API.
  */
+@Tag(name = "02. 公开导览", description = "无需登录的校园数据、数字人问答、语音和反馈接口")
 @RestController
 @RequestMapping("/api/public")
 public class PublicController {

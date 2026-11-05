@@ -1,8 +1,11 @@
 package com.hbeu.campusguide.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.hbeu.campusguide.common.ApiResponse;
+import com.hbeu.campusguide.config.OpenApiConfig;
 import com.hbeu.campusguide.config.RequireRole;
 import com.hbeu.campusguide.domain.AuditLog;
 import com.hbeu.campusguide.domain.ChatLog;
@@ -22,6 +25,8 @@ import java.util.List;
 /**
  * Read-only analytics and audit endpoints.
  */
+@Tag(name = "04. 数据分析与审计", description = "问答日志、运营统计和审计日志")
+@SecurityRequirement(name = OpenApiConfig.BEARER_AUTH)
 @RestController
 @RequestMapping("/api/admin")
 @RequireRole({"DATA_ANALYST", "SYSTEM_ADMIN"})

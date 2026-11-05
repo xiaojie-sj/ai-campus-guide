@@ -43,7 +43,7 @@ Browser
 | 层 | 技术 |
 | --- | --- |
 | 前端 | Vue 3.5 · TypeScript 6 · Vite 8 · Vue Router 5 · Three.js 0.187 · Vitest |
-| 后端 | Java 17 · Spring Boot 3.5 · MyBatis-Plus 3.5 · Flyway · JJWT · Apache Tika |
+| 后端 | Java 17 · Spring Boot 3.5 · MyBatis-Plus 3.5 · Flyway · JJWT · Apache Tika · Knife4j 4.5 + springdoc 2.8 |
 | 数据库 | H2（默认演示）/ MySQL 8 / PostgreSQL 15+ + PostGIS + pgRouting + pgvector |
 | AI | 本地 256 维特征哈希向量；可选 OpenAI 兼容对话、ASR、TTS 网关 |
 | 建模 | Blender 5.2 · CLI-Anything Blender Harness（外部工具）· glTF/GLB |
@@ -76,6 +76,7 @@ npm run dev
 | 管理端 | http://127.0.0.1:5173/admin/login |
 | 模型预览 | http://127.0.0.1:5173/campus-viewer.html |
 | 后端健康检查 | http://127.0.0.1:8080/actuator/health |
+| 接口调试文档（Knife4j） | http://127.0.0.1:8080/doc.html |
 
 演示账号为 `admin`、`editor`、`reviewer`、`analyst`，密码均为 `Demo@123`。上线前必须修改密码与 JWT 密钥。
 

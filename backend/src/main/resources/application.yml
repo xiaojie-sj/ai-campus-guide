@@ -19,6 +19,15 @@ server:
   port: ${SERVER_PORT:8080}
   shutdown: graceful
 
+# OpenAPI / Knife4j UI. Set KNIFE4J_ENABLED=false in production.
+springdoc:
+  api-docs:
+    enabled: ${KNIFE4J_ENABLED:true}
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: ${KNIFE4J_ENABLED:true}
+    path: /swagger-ui.html
+
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true

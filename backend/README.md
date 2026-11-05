@@ -34,6 +34,18 @@ java -jar target\campus-guide-1.0.0.jar
 
 默认端口为 `8080`。健康检查：<http://127.0.0.1:8080/actuator/health>
 
+## 接口文档（Knife4j）
+
+启动后访问 <http://127.0.0.1:8080/doc.html> 进行在线接口调试。
+
+- **公开接口**分组：校园数据、问答、语音和认证接口，无需 JWT。
+- **管理接口**分组：点位、路网、机位、路线、FAQ、知识库、参数、统计和审计接口。
+- **JWT 调试流程**：先调用 `POST /api/auth/login`，复制响应中的 `data.token`，点击 Knife4j 右上角 **Authorize** 填入 token，再调用 `/api/admin/**`。无需手动添加 Bearer 前缀。
+- **OpenAPI JSON**：`/v3/api-docs`（全部）、`/v3/api-docs/public`（公开）、`/v3/api-docs/admin`（管理）。
+- 演示账号：`admin`、`editor`、`reviewer`、`analyst`，密码均为 `Demo@123`。
+
+生产环境设置环境变量 `KNIFE4J_ENABLED=false`，会同时关闭 OpenAPI 生成和 `/doc.html` 调试入口。
+
 ## 数据库档案
 
 | Profile | 数据库 | Flyway 目录 | 用途 |
@@ -96,6 +108,7 @@ java -jar target\campus-guide-1.0.0.jar `
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
 | `SERVER_PORT` | `8080` | HTTP 端口 |
+| `KNIFE4J_ENABLED` | `true` | 是否启用 Knife4j/OpenAPI 接口文档，生产环境建议设为 `false` |
 | `APP_JWT_SECRET` | 演示密钥 | JWT 签名密钥，生产环境必须替换为至少 32 字符的随机值 |
 | `APP_JWT_TTL_MINUTES` | `480` | Token 有效期（分钟） |
 | `APP_UPLOAD_DIR` | `./data/uploads` | 知识库上传目录 |

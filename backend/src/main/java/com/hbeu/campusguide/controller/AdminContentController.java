@@ -1,7 +1,10 @@
 package com.hbeu.campusguide.controller;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.hbeu.campusguide.common.ApiResponse;
+import com.hbeu.campusguide.config.OpenApiConfig;
 import com.hbeu.campusguide.common.BusinessException;
 import com.hbeu.campusguide.common.ErrorCode;
 import com.hbeu.campusguide.config.AdminContext;
@@ -54,6 +57,8 @@ import java.util.List;
 /**
  * Content operations available to the independent admin application.
  */
+@Tag(name = "03. 内容管理", description = "点位、路网、机位、路线、FAQ、知识库和系统参数维护")
+@SecurityRequirement(name = OpenApiConfig.BEARER_AUTH)
 @RestController
 @RequestMapping("/api/admin")
 public class AdminContentController {
