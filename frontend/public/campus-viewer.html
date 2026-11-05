@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>地图2 · 校园三维模型预览</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #0a1b1d; }
+    canvas { display: block; }
+    .hud {
+      position: fixed; left: 20px; top: 18px; z-index: 5; color: #eef6f2;
+      font: 13px/1.6 "Microsoft YaHei", system-ui, sans-serif; pointer-events: none;
+      text-shadow: 0 1px 8px rgba(0,0,0,.6);
+    }
+    .hud h1 { font-size: 19px; margin: 0 0 4px; font-weight: 600; letter-spacing: .04em; }
+    .hud p { margin: 0; opacity: .72; }
+    .hud .stats { margin-top: 8px; opacity: .55; font-size: 12px; }
+    .hint {
+      position: fixed; right: 20px; bottom: 16px; z-index: 5; color: #dbe9e4;
+      font: 12px/1.5 "Microsoft YaHei", system-ui, sans-serif; opacity: .55;
+      text-align: right; pointer-events: none;
+    }
+    #loading {
+      position: fixed; inset: 0; display: grid; place-items: center; z-index: 9;
+      color: #dff0e9; background: #0a1b1d; font: 14px "Microsoft YaHei", sans-serif;
+      transition: opacity .5s ease;
+    }
+  </style>
+</head>
+<body>
+  <div class="hud">
+    <h1>湖北工程学院新技术学院 · 地图2</h1>
+    <p>Blender / CLI-Anything 高质量校园模型</p>
+    <div class="stats" id="stats">正在加载 GLB…</div>
+  </div>
+  <div class="hint">左键旋转 · 右键平移 · 滚轮缩放</div>
+  <div id="loading">正在加载校园模型…</div>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/node_modules/three/build/three.module.js",
+        "three/addons/": "/node_modules/three/examples/jsm/"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from 'three'
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true })
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
+    renderer.setSize(innerWidth, innerHeight)
+    renderer.outputColorSpace = THREE.SRGBColorSpace
+    renderer.toneMapping = THREE.ACESFilmicToneMapping
+    renderer.toneMappingExposure = 1.15
+    renderer.shadowMap.enabled = true
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    document.body.appendChild(renderer.domElement)
+
+    const scene = new THREE.Scene()
+    scene.background = new THREE.Color('#0a1b1d')
+    scene.fog = new THREE.FogExp2('#0a1b1d', 0.0026)
+
+    const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.1, 400)
+    camera.position.set(34, 30, 42)
+
+    const controls = new OrbitControls(camera, renderer.domElement)
+    controls.target.set(0, 0.6, 0)
+    controls.enableDamping = true
+    controls.dampingFactor = 0.06
+    controls.maxPolarAngle = Math.PI * 0.48
+    controls.minDistance = 6
+    controls.maxDistance = 130
+
+    scene.add(new THREE.HemisphereLight('#d9f6ef', '#13241f', 2.0))
+    const sun = new THREE.DirectionalLight('#ffe4bd', 3.0)
+    sun.position.set(-26, 42, 22)
+    sun.castShadow = true
+    sun.shadow.mapSize.set(2048, 2048)
+    const d = 42
+    Object.assign(sun.shadow.camera, { left: -d, right: d, top: d, bottom: -d, near: 1, far: 120 })
+    sun.shadow.bias = -0.0002
+    sun.shadow.normalBias = 0.02
+    scene.add(sun)
+    const fill = new THREE.DirectionalLight('#8ccbbf', 1.15)
+    fill.position.set(28, 18, -26)
+    scene.add(fill)
+    const rim = new THREE.DirectionalLight('#f0b46a', 0.85)
+    rim.position.set(10, 12, -34)
+    scene.add(rim)
+
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(160, 160),
+      new THREE.MeshStandardMaterial({ color: '#9fb7a4', roughness: 1 }),
+    )
+    ground.rotation.x = -Math.PI / 2
+    ground.position.y = -0.22
+    ground.receiveShadow = true
+    scene.add(ground)
+
+    const loader = new GLTFLoader()
+    loader.load('/models/campus-buildings.glb', (gltf) => {
+      const root = gltf.scene
+      root.traverse((o) => {
+        if (o.isMesh) {
+          o.castShadow = true
+          o.receiveShadow = true
+        }
+      })
+      scene.add(root)
+      const box = new THREE.Box3().setFromObject(root)
+      const size = box.getSize(new THREE.Vector3())
+      let tris = 0
+      root.traverse((o) => {
+        if (o.isMesh && o.geometry?.index) tris += o.geometry.index.count / 3
+        else if (o.isMesh && o.geometry?.attributes?.position) tris += o.geometry.attributes.position.count / 3
+      })
+      document.getElementById('stats').textContent =
+        `范围 ${size.x.toFixed(1)} × ${size.z.toFixed(1)} · 高度 ${size.y.toFixed(1)} · 约 ${Math.round(tris / 1000)}k 三角面`
+      const loading = document.getElementById('loading')
+      loading.style.opacity = '0'
+      setTimeout(() => loading.remove(), 600)
+    }, (ev) => {
+      if (ev.total) {
+        document.getElementById('loading').textContent =
+          `正在加载校园模型… ${Math.round(ev.loaded / ev.total * 100)}%`
+      }
+    }, (err) => {
+      document.getElementById('loading').textContent = '模型加载失败：' + err
+      console.error(err)
+    })
+
+    let auto = true
+    let last = performance.now()
+    addEventListener('pointerdown', () => { auto = false })
+    addEventListener('keydown', (e) => { if (e.code === 'KeyR') auto = true })
+    addEventListener('resize', () => {
+      camera.aspect = innerWidth / innerHeight
+      camera.updateProjectionMatrix()
+      renderer.setSize(innerWidth, innerHeight)
+    })
+    function tick(now) {
+      requestAnimationFrame(tick)
+      const dt = Math.min(0.05, (now - last) / 1000)
+      last = now
+      if (auto) controls.target.applyAxisAngle(new THREE.Vector3(0, 1, 0), dt * 0.018)
+      controls.update()
+      renderer.render(scene, camera)
+    }
+    requestAnimationFrame(tick)
+  </script>
+</body>
+</html>

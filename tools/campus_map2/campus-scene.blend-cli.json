@@ -1,0 +1,190 @@
+{
+  "cameras": [
+    {
+      "clip_end": 1000.0,
+      "clip_start": 0.1,
+      "dof_aperture": 2.8,
+      "dof_enabled": false,
+      "dof_focus_distance": 10.0,
+      "focal_length": 52.0,
+      "id": 0,
+      "is_active": true,
+      "location": [
+        29.0,
+        -27.0,
+        21.0
+      ],
+      "name": "Hero",
+      "rotation": [
+        63.0,
+        0.0,
+        43.0
+      ],
+      "sensor_width": 36.0,
+      "type": "PERSP"
+    }
+  ],
+  "collections": [
+    {
+      "id": 0,
+      "name": "Collection",
+      "objects": [],
+      "visible": true
+    }
+  ],
+  "lights": [
+    {
+      "angle": 0.00918,
+      "color": [
+        1.0,
+        0.91,
+        0.79
+      ],
+      "id": 0,
+      "location": [
+        0.0,
+        0.0,
+        30.0
+      ],
+      "name": "Sun",
+      "power": 3.2,
+      "rotation": [
+        50.0,
+        0.0,
+        -38.0
+      ],
+      "type": "SUN"
+    }
+  ],
+  "materials": [
+    {
+      "alpha": 1.0,
+      "color": [
+        0.831,
+        0.906,
+        0.961,
+        1.0
+      ],
+      "emission_color": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "emission_strength": 0.0,
+      "id": 0,
+      "metallic": 0.0,
+      "name": "Campus_Ground",
+      "roughness": 0.95,
+      "specular": 0.5,
+      "type": "principled",
+      "use_backface_culling": false
+    },
+    {
+      "alpha": 1.0,
+      "color": [
+        0.969,
+        0.973,
+        0.965,
+        1.0
+      ],
+      "emission_color": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "emission_strength": 0.0,
+      "id": 1,
+      "metallic": 0.0,
+      "name": "Campus_Road",
+      "roughness": 0.88,
+      "specular": 0.5,
+      "type": "principled",
+      "use_backface_culling": false
+    },
+    {
+      "alpha": 1.0,
+      "color": [
+        0.937,
+        0.91,
+        0.851,
+        1.0
+      ],
+      "emission_color": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "emission_strength": 0.0,
+      "id": 2,
+      "metallic": 0.0,
+      "name": "Campus_Wall",
+      "roughness": 0.8,
+      "specular": 0.5,
+      "type": "principled",
+      "use_backface_culling": false
+    },
+    {
+      "alpha": 1.0,
+      "color": [
+        0.431,
+        0.616,
+        0.663,
+        1.0
+      ],
+      "emission_color": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "emission_strength": 0.0,
+      "id": 3,
+      "metallic": 0.25,
+      "name": "Campus_Glass",
+      "roughness": 0.16,
+      "specular": 0.5,
+      "type": "principled",
+      "use_backface_culling": false
+    }
+  ],
+  "metadata": {
+    "created": "2026-11-04T23:16:16.707656",
+    "modified": "2026-11-04T23:16:32.406435",
+    "software": "blender-cli 1.0"
+  },
+  "name": "CampusMap2_Production",
+  "objects": [],
+  "render": {
+    "engine": "EEVEE",
+    "film_transparent": false,
+    "output_format": "PNG",
+    "output_path": "./render/",
+    "resolution_percentage": 100,
+    "resolution_x": 1600,
+    "resolution_y": 1000,
+    "samples": 64,
+    "use_denoising": true
+  },
+  "scene": {
+    "fps": 24,
+    "frame_current": 1,
+    "frame_end": 250,
+    "frame_start": 1,
+    "unit_scale": 1.0,
+    "unit_system": "metric"
+  },
+  "version": "1.0",
+  "world": {
+    "background_color": [
+      0.05,
+      0.05,
+      0.05
+    ],
+    "hdri_path": null,
+    "hdri_strength": 1.0,
+    "use_hdri": false
+  }
+}

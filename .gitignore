@@ -1,0 +1,66 @@
+# ---------------------------------------------------------------------------
+# Local runtime and IDE state
+# ---------------------------------------------------------------------------
+.runtime/
+.idea/
+.vscode/
+*.iml
+
+# ---------------------------------------------------------------------------
+# Operating-system metadata
+# ---------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ---------------------------------------------------------------------------
+# Secrets and local environment overrides
+# Keep checked-in examples such as frontend/.env.example.
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# ---------------------------------------------------------------------------
+# Frontend (Vite + Vue)
+# ---------------------------------------------------------------------------
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/*.log
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
+
+# ---------------------------------------------------------------------------
+# Backend (Spring Boot + Maven)
+# ---------------------------------------------------------------------------
+backend/target/
+backend/data/
+backend/*.log
+backend/logs/
+
+# ---------------------------------------------------------------------------
+# Python / generated tooling files
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+tools/campus_map2/analysis/
+*.tmp
+*.bak
+
+# Blender backups; the final .blend and exported .glb stay tracked.
+*.blend1
+*.blend2
+
+# ---------------------------------------------------------------------------
+# Development-only external tools
+# CLI-Anything is a global Codex/Blender tool, not application source.
+# Keep its clone under ~/.codex/vendor/CLI-Anything, never inside this repo.
+# ---------------------------------------------------------------------------
+CLI-Anything/
