@@ -32,6 +32,18 @@
 
 > **In short** — AI Campus Guide is a fully decoupled Vue 3 + Spring Boot campus guide that combines a Three.js 3D campus, an SVG digital-human host, retrieval-augmented Q&A with source citations, and A*/pgRouting walking directions. The backend exposes REST APIs, JWT auth and a full admin console for points, road network, tours, knowledge base and analytics.
 
+---
+
+## 界面预览
+
+<p align="center">
+  <img src="docs/03-modeling/renders/10_system_preview.png" alt="系统三维可视化预览页" width="100%" />
+</p>
+
+<p align="center"><sub><b>系统三维可视化预览页</b> · 公众端三维导览界面（2544 × 1396）</sub></p>
+
+### 三维场景细节
+
 <table>
   <tr>
     <td width="50%"><img src="docs/03-modeling/renders/01_overview_hero.png" alt="三维校园总览" /></td>
@@ -56,6 +68,7 @@
 ## 目录
 
 - [项目简介](#项目简介)
+- [界面预览](#界面预览)
 - [核心功能](#核心功能)
 - [系统架构](#系统架构)
 - [技术栈](#技术栈)
