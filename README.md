@@ -1,189 +1,558 @@
-# 湖北工程学院新技术学院 · AI 数字人校园导览系统
+<div align="center">
 
-基于 **Three.js 三维校园 + 数字人导览 + 私有知识库 RAG** 的校园导览 Web 系统。访客可以漫游校园模型、点击建筑听讲解、询问已审核的校园信息并查看步行导航；管理端可维护点位、路网、路线、机位、知识库、FAQ、日志和系统参数。
+# AI Campus Guide
 
-> 模型严格依据 [`地图2.png`](docs/assets/maps/地图2.png) 的标注、轮廓与相对位置构建。底图没有标注层数和立面细节，相关部分属于合理推断；未标注的建筑体量按宿舍或配套用房处理。
+**AI 数字人校园导览系统**
 
-![校园总览](docs/03-modeling/renders/01_overview_hero.png)
+三维校园漫游 · 数字人讲解 · 可信知识库问答 · 步行导航
 
-## 架构边界
+[![Vue](https://img.shields.io/badge/Vue-3.5-42b883?logo=vuedotjs&logoColor=white)](https://vuejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-8.3-646cff?logo=vite&logoColor=white)](https://vite.dev/)
+[![Three.js](https://img.shields.io/badge/Three.js-0.187-000000?logo=threedotjs&logoColor=white)](https://threejs.org/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5-6db33f?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
+[![Java](https://img.shields.io/badge/Java-17-orange?logo=openjdk&logoColor=white)](https://openjdk.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-PostGIS%20%7C%20pgRouting%20%7C%20pgvector-4169e1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](#贡献指南)
 
-项目由两个可独立开发、构建和部署的应用组成，不使用“前端构建产物复制进后端”的耦合方式：
+</div>
 
-```text
-Browser
-  ├─ 静态 SPA ─────────────── frontend/  (Vue 3 + Vite + Three.js)
-  │                              │
-  │                              └─ HTTP /api/* ──┐
-  └─ 同源反向代理（生产）                         │
-                                                   ▼
-                                      backend/  (Spring Boot REST API)
-                                                   │
-                                                   └─ H2 / MySQL / PostgreSQL
+---
+
+## 项目简介
+
+**AI Campus Guide** 是一套前后端完全解耦的校园导览 Web 系统。它把「三维校园模型」当作空间底座，把「数字人」当作交互人格，把「已审核知识库」当作回答依据，让访客在浏览器里就能完成**逛校园、听讲解、问问题、找路线**这一整条动线。
+
+系统面向两类使用者：
+
+- **访客 / 新生 / 考生家长**：拖拽漫游三维校园，点击建筑听讲解，用自然语言提问，获得带来源引用的答案与逐段步行导航。
+- **校方运营人员**：在管理端维护点位、路网、精品路线、预置机位、FAQ、知识库、系统参数与问答日志。
+
+> **设计原则：宁可拒答，也不编造。** 问答链路的回答只能来自「FAQ 精确命中 → 知识库向量检索 → 已审核点位数据」三级可信来源；没有依据时返回明确的拒答提示，而不是让大模型自由发挥。
+
+> **In short** — AI Campus Guide is a fully decoupled Vue 3 + Spring Boot campus guide that combines a Three.js 3D campus, an SVG digital-human host, retrieval-augmented Q&A with source citations, and A*/pgRouting walking directions. The backend exposes REST APIs, JWT auth and a full admin console for points, road network, tours, knowledge base and analytics.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/03-modeling/renders/01_overview_hero.png" alt="三维校园总览" /></td>
+    <td width="50%"><img src="docs/03-modeling/renders/07_web_preview.png" alt="Web 端三维场景" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>三维校园总览</sub></td>
+    <td align="center"><sub>浏览器内实时渲染</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/03-modeling/renders/05_gate_plaza.png" alt="门区广场" /></td>
+    <td width="50%"><img src="docs/03-modeling/renders/04_teaching_cluster.png" alt="教学建筑群" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>门区与广场</sub></td>
+    <td align="center"><sub>教学建筑群</sub></td>
+  </tr>
+</table>
+
+---
+
+## 目录
+
+- [项目简介](#项目简介)
+- [核心功能](#核心功能)
+- [系统架构](#系统架构)
+- [技术栈](#技术栈)
+- [快速开始](#快速开始)
+- [数据库与运行档案](#数据库与运行档案)
+- [配置说明](#配置说明)
+- [API 文档](#api-文档)
+- [测试](#测试)
+- [目录结构](#目录结构)
+- [三维建模管线](#三维建模管线)
+- [生产部署](#生产部署)
+- [已知限制](#已知限制)
+- [路线图](#路线图)
+- [贡献指南](#贡献指南)
+- [许可证](#许可证)
+- [致谢](#致谢)
+
+---
+
+## 核心功能
+
+### 访客端
+
+| 功能 | 说明 |
+| --- | --- |
+| **三维校园漫游** | 约 50 万三角面的 GLB 场景，支持轨道漫游、缩放与预置机位切换；模型加载失败时自动降级为程序化兜底场景，页面不会白屏。 |
+| **建筑点选与讲解** | 点击建筑或左侧点位列表，镜头沿贝塞尔路径飞行到目标，同步高亮建筑并触发数字人指引手势与语音讲解。 |
+| **数字人导览** | SVG 数字人具备待机呼吸、挥手、指引三种动作状态，随回答内容与场景动作联动，不依赖外部视频或 3D 角色资源。 |
+| **可信知识问答** | FAQ 精确/模糊命中 → 本地向量检索 → 已审核点位数据，逐级降级；回答附带 `sources` 来源引用，无依据时明确拒答。 |
+| **步行导航** | 基于校园路网做最短路规划，输出逐段中文指令、分段距离、总距离与预计步行时间，并在三维场景中高亮路线。 |
+| **精品路线** | 校方预设讲解动线，支持自动播放、暂停、上一站/下一站；访客中途提问时自动暂停，回答结束后自动续播。 |
+| **侧栏可折叠** | 点位栏与路线栏均可收起为窄条，桌面端互不影响，移动端互斥切换，为三维视图让出最大可视面积。 |
+| **反馈闭环** | 每条回答支持「有帮助 / 没帮助 / 信息过时」反馈，写入日志供运营侧分析。 |
+
+### 管理端
+
+| 功能 | 说明 |
+| --- | --- |
+| **点位管理** | 增删改查校园点位，维护坐标、建筑高度、配色、模型 Key、路网节点绑定与发布状态。 |
+| **路网管理** | 维护路网节点与带权边，作为路径规划的数据基础。 |
+| **路线管理** | 编排精品路线的站点顺序与讲解词。 |
+| **机位管理** | 保存/调整预置相机机位（位置、朝向、视场角）。 |
+| **FAQ 管理** | 维护高频问答对，作为问答链路的第一优先级来源。 |
+| **知识库管理** | 上传 PDF / Word / Markdown / 纯文本等资料，Apache Tika 自动解析，按 420 字滑窗切块并建立向量索引；支持发布与重建索引。 |
+| **运营分析** | 问答日志、反馈统计、审计日志查询。 |
+| **参数与权限** | 系统参数在线调整；基于 JWT + 注解式 RBAC 的四级角色权限。 |
+
+---
+
+## 系统架构
+
+```mermaid
+flowchart LR
+    subgraph Client["浏览器"]
+        SPA["Vue 3 SPA<br/>公众端 / 管理端"]
+        THREE["Three.js 渲染层<br/>GLB 校园模型"]
+    end
+
+    subgraph Server["Spring Boot 3 应用"]
+        API["REST API 层<br/>Controller + 统一响应封装"]
+        CHAT["问答编排<br/>ChatService"]
+        RAG["检索增强<br/>RagService + 本地向量"]
+        PATH["路径规划<br/>PathPlanner (A*)"]
+        ADMIN["内容管理 / 认证 / 审计"]
+    end
+
+    subgraph Data["数据层"]
+        DB[("H2 / MySQL / PostgreSQL")]
+        SPATIAL[("PostGIS · pgRouting · pgvector")]
+        FILES[("知识库文件 / 上传媒体")]
+    end
+
+    LLM["可选 LLM 网关<br/>OpenAI 兼容 API"]
+
+    SPA -- "HTTP /api/*（JWT）" --> API
+    THREE -. "静态 GLB" .- SPA
+    API --> CHAT
+    API --> PATH
+    API --> ADMIN
+    CHAT --> RAG
+    RAG --> DB
+    PATH --> SPATIAL
+    ADMIN --> FILES
+    CHAT -. "可选：组织回答 / ASR / TTS" .-> LLM
 ```
 
-- **前端**是纯 SPA，构建结果位于 `frontend/dist/`，可部署到任意静态站点或 CDN。
-- **后端**只提供 REST API、认证、知识库和路径规划，不承载前端源码或构建产物。
-- **本地开发**由 Vite 将 `/api` 代理到 `http://localhost:8080`。
-- **独立部署**通过 `VITE_API_BASE_URL` 指向 API 域名，或由 Nginx/Caddy 配置同源 `/api` 反向代理。
-- 两端仅通过 JSON API 和 JWT 交互，目录与依赖互不包含。
+### 前后端如何解耦
 
-## 功能概览
+项目由两个可独立开发、独立构建、独立部署的应用组成，**不使用「前端构建产物复制进后端」的耦合方式**：
 
-- **三维校园**：约 50 万三角面 GLB、建筑点选、标签避让、镜头飞行、路线高亮和程序化兜底场景。
-- **数字人导览**：SVG 数字人，支持待机、挥手、指引手势，并随回答和场景动作联动。
-- **可信问答**：FAQ → 本地向量检索 → 可选 LLM 组织回答，返回来源引用；没有已审核依据时明确拒答。
-- **步行导航**：pgRouting 或内存 A* 路径规划，输出逐段中文指令、距离和预计时间。
-- **精品路线**：讲稿自动播放、暂停、上下站，用户提问时暂停并在回答后继续。
-- **管理端**：点位、路网、路线、机位、FAQ、知识库、日志、参数与角色权限管理。
-- **多数据库档案**：H2 零依赖演示；MySQL；PostgreSQL + PostGIS + pgRouting + pgvector。
+- `frontend/` 是纯 SPA，产物为静态文件，可部署到任意静态托管或 CDN。
+- `backend/` 只提供 REST API、认证、知识库与路径规划，不包含任何前端源码或构建产物。
+- 本地开发时由 Vite 把 `/api` 代理到 `http://localhost:8080`；生产环境由 Nginx / Caddy 做同源反向代理。
+- 两端只通过 JSON API 与 JWT 交互，目录结构与依赖互不侵入。
+
+---
 
 ## 技术栈
 
-| 层 | 技术 |
+### 前端
+
+| 技术 | 版本 | 用途 |
+| --- | --- | --- |
+| [Vue 3](https://vuejs.org/) | 3.5 | 组合式 API 构建公众端与管理端界面 |
+| [TypeScript](https://www.typescriptlang.org/) | 6.0 | 全量类型约束，前后端 DTO 对齐 |
+| [Vite](https://vite.dev/) | 8.3 | 开发服务器、构建与 `/api` 代理 |
+| [Vue Router](https://router.vuejs.org/) | 5.4 | 公众端 / 管理端路由与登录守卫 |
+| [Three.js](https://threejs.org/) | 0.187 | GLB 场景加载、相机飞行、射线拾取、路线高亮 |
+| [Vitest](https://vitest.dev/) | 5.1 | 组件单元测试（jsdom 环境） |
+
+**为什么这么选**：Three.js 直连 WebGL，不需要引入完整游戏引擎即可满足「几万面到几十万面静态场景 + 点选 + 镜头动画」的需求；Vite 的冷启动和 HMR 让三维调试的迭代成本显著降低。
+
+### 后端
+
+| 技术 | 版本 | 用途 |
+| --- | --- | --- |
+| [Spring Boot](https://spring.io/projects/spring-boot) | 3.5.3 | Web、校验、Actuator、任务调度 |
+| [Java](https://openjdk.org/) | 17 | LTS 运行时 |
+| [MyBatis-Plus](https://baomidou.com/) | 3.5.7 | 数据访问与分页 |
+| [Flyway](https://flywaydb.org/) | 跟随 Boot | 多数据库版本化迁移 |
+| [JJWT](https://github.com/jwtk/jjwt) | 0.12.6 | 管理端 JWT 签发与校验 |
+| [Apache Tika](https://tika.apache.org/) | 3.2.3 | 知识库文档解析（PDF / Office / 文本） |
+| [springdoc-openapi](https://springdoc.org/) | 2.8.17 | OpenAPI 3 文档生成 |
+| [Knife4j](https://doc.xiaominfo.com/) | 4.5.0 | 中文友好的接口调试 UI |
+
+### 数据与算法
+
+| 技术 | 用途 |
 | --- | --- |
-| 前端 | Vue 3.5 · TypeScript 6 · Vite 8 · Vue Router 5 · Three.js 0.187 · Vitest |
-| 后端 | Java 17 · Spring Boot 3.5 · MyBatis-Plus 3.5 · Flyway · JJWT · Apache Tika · Knife4j 4.5 + springdoc 2.8 |
-| 数据库 | H2（默认演示）/ MySQL 8 / PostgreSQL 15+ + PostGIS + pgRouting + pgvector |
-| AI | 本地 256 维特征哈希向量；可选 OpenAI 兼容对话、ASR、TTS 网关 |
-| 建模 | Blender 5.2 · CLI-Anything Blender Harness（外部工具）· glTF/GLB |
+| **PostgreSQL 15+** | 生产数据库 |
+| **PostGIS** | 空间字段与距离计算 |
+| **pgRouting** | 数据库内最短路查询 |
+| **pgvector** | 知识块向量检索 |
+| **H2 / MySQL 8** | 零依赖演示 / 轻量部署档案 |
+| **本地向量哈希** | 256 维特征哈希，无需外部 Embedding 服务即可跑通 RAG |
+| **A\* 路径规划** | 无 pgRouting 时的内存兜底实现 |
+
+### 建模
+
+| 技术 | 用途 |
+| --- | --- |
+| **Blender 5.2** | 建筑体量、材质、灯光与渲染 |
+| **Python + bpy** | 参数化建模脚本（`tools/campus_map2/`） |
+| **glTF / GLB** | 运行时模型格式 |
+
+---
 
 ## 快速开始
 
-环境要求：JDK 17+、Node.js 20+（建议 22）、npm 10+。默认 `demo` 档案不需要安装数据库。
+### 环境要求
 
-### 1. 启动后端
+| 依赖 | 版本 | 是否必需 |
+| --- | --- | --- |
+| JDK | 17+ | 必需 |
+| Node.js | 20+（建议 22） | 必需 |
+| npm | 10+ | 必需 |
+| PostgreSQL + PostGIS + pgRouting + pgvector | 15+ | 可选（完整空间数据） |
 
-```powershell
-cd backend
-.\mvnw.cmd clean package -DskipTests
-java -jar target\campus-guide-1.0.0.jar
+默认 `demo` 档案使用 H2 文件数据库，**无需安装任何数据库**即可启动。
+
+### 1. 克隆仓库
+
+```bash
+git clone https://github.com/<your-name>/ai-campus-guide.git
+cd ai-campus-guide
 ```
 
-### 2. 启动前端
+### 2. 启动后端
+
+```bash
+cd backend
+./mvnw clean package -DskipTests      # Windows: .\mvnw.cmd clean package -DskipTests
+java -jar target/campus-guide-1.0.0.jar
+```
+
+后端启动于 `http://localhost:8080`，健康检查：`GET /actuator/health`。
+
+### 3. 启动前端
 
 另开一个终端：
 
-```powershell
+```bash
 cd frontend
 npm ci
 npm run dev
 ```
 
+### 4. 访问
+
 | 入口 | 地址 |
 | --- | --- |
-| 公众端 | http://127.0.0.1:5173/ |
-| 管理端 | http://127.0.0.1:5173/admin/login |
-| 模型预览 | http://127.0.0.1:5173/campus-viewer.html |
+| 公众端（三维导览） | http://127.0.0.1:5173/ |
+| 管理端登录 | http://127.0.0.1:5173/admin/login |
+| 独立模型预览页 | http://127.0.0.1:5173/campus-viewer.html |
 | 后端健康检查 | http://127.0.0.1:8080/actuator/health |
-| 接口调试文档（Knife4j） | http://127.0.0.1:8080/doc.html |
+| 接口调试（Knife4j） | http://127.0.0.1:8080/doc.html |
 
-演示账号为 `admin`、`editor`、`reviewer`、`analyst`，密码均为 `Demo@123`。上线前必须修改密码与 JWT 密钥。
+> **演示账号**：`admin`、`editor`、`reviewer`、`analyst`，密码均为 `Demo@123`。
+> 上线前必须修改密码与 JWT 密钥。
 
-## 前端与后端独立部署
+---
 
-推荐生产结构：
+## 数据库与运行档案
 
-```text
-Nginx / Caddy
-  ├─ /        → frontend/dist 静态文件（SPA history fallback）
-  ├─ /api     → 127.0.0.1:8080
-  └─ /models  → 前端静态 GLB，启用 Brotli 与长缓存
+| 档案 | 启动方式 | 数据库 | 适用场景 |
+| --- | --- | --- | --- |
+| `demo`（默认） | 直接启动 | H2 文件库 | 本地演示、快速上手 |
+| `mysql` | `--spring.profiles.active=mysql` | MySQL 8 | 常规校内部署 |
+| `postgres` | `--spring.profiles.active=postgres` | PostgreSQL + PostGIS + pgRouting + pgvector | 完整空间检索与最短路 |
+
+示例：
+
+```bash
+java -jar target/campus-guide-1.0.0.jar --spring.profiles.active=postgres
 ```
 
-如果 API 使用独立域名，构建前设置：
+或使用环境变量：
 
-```powershell
-cd frontend
-$env:VITE_API_BASE_URL = "https://api.example.edu.cn"
-npm run build
+```bash
+SPRING_PROFILES_ACTIVE=postgres java -jar target/campus-guide-1.0.0.jar
 ```
 
-后端需同步配置允许来源：
+> `demo` 档案只加载 H2 的 `V1–V4` 迁移；完整点位、建筑与路网空间数据在 `postgres` 档案下由 `V5–V8` 迁移建立。
 
-```powershell
-$env:APP_CORS_ORIGIN = "https://guide.example.edu.cn"
+---
+
+## 配置说明
+
+后端全部配置都可通过环境变量覆盖：
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `SERVER_PORT` | `8080` | 后端监听端口 |
+| `APP_JWT_SECRET` | 演示密钥 | JWT 签名密钥，**生产必改**（≥ 32 字符） |
+| `APP_JWT_TTL_MINUTES` | `480` | Token 有效期（分钟） |
+| `APP_CORS_ORIGIN` | `http://localhost:5173` | 允许的前端来源 |
+| `APP_CORS_ORIGIN_ALT` | `http://127.0.0.1:5173` | 备用来源 |
+| `APP_UPLOAD_DIR` | `./data/uploads` | 知识库/媒体上传目录 |
+| `APP_MAX_FILE_BYTES` | `52428800` | 单文件上限（50 MB） |
+| `KNIFE4J_ENABLED` | `true` | 是否开放接口文档，**生产建议 `false`** |
+| `AI_ENABLED` | `false` | 是否启用外部 LLM / ASR / TTS |
+| `AI_BASE_URL` | `https://api.openai.com/v1` | OpenAI 兼容网关地址 |
+| `AI_API_KEY` | 空 | 网关密钥 |
+| `AI_CHAT_MODEL` | `gpt-4.1-mini` | 对话模型 |
+| `AI_ASR_MODEL` | `whisper-1` | 语音识别模型 |
+| `AI_TTS_MODEL` | `gpt-4o-mini-tts` | 语音合成模型 |
+| `AI_TTS_VOICE` | `alloy` | 合成音色 |
+
+前端配置（构建时注入）：
+
+| 变量 | 说明 |
+| --- | --- |
+| `VITE_API_BASE_URL` | API 根地址；同源部署或走 Vite 代理时留空 |
+| `VITE_API_PROXY_TARGET` | 开发代理目标，默认 `http://localhost:8080` |
+
+> `AI_ENABLED=false` 时系统仍可完整运行：问答走 FAQ + 本地向量检索，语音相关接口返回明确的未启用提示。
+
+---
+
+## API 文档
+
+启动后端后访问 **Knife4j**：<http://localhost:8080/doc.html>
+
+原始 OpenAPI JSON：`GET /v3/api-docs`
+
+### 主要接口
+
+| 分组 | 方法 | 路径 | 说明 |
+| --- | --- | --- | --- |
+| 认证 | `POST` | `/api/auth/login` | 管理端登录，返回 JWT |
+| 公开导览 | `GET` | `/api/public/bootstrap` | 一次性拉取点位、建筑、路网、路线、机位与配置 |
+| 公开导览 | `GET` | `/api/public/points` | 点位列表 |
+| 公开导览 | `GET` | `/api/public/tours` | 精品路线列表 |
+| 公开导览 | `POST` | `/api/public/chat` | 数字人问答（含场景指令与来源引用） |
+| 公开导览 | `POST` | `/api/public/feedback` | 回答反馈 |
+| 公开导览 | `POST` | `/api/public/asr` | 语音识别（需启用 AI） |
+| 公开导览 | `POST` | `/api/public/tts` | 语音合成（需启用 AI） |
+| 内容管理 | `GET/POST/PUT/DELETE` | `/api/admin/points` | 点位维护 |
+| 内容管理 | `GET/POST/DELETE` | `/api/admin/roads/**` | 路网节点与边维护 |
+| 内容管理 | `GET/POST/PUT` | `/api/admin/tours` | 精品路线维护 |
+| 内容管理 | `GET/POST/PUT` | `/api/admin/cameras` | 预置机位维护 |
+| 内容管理 | `GET/POST/PUT/DELETE` | `/api/admin/faqs` | FAQ 维护 |
+| 内容管理 | `GET/POST/PUT/DELETE` | `/api/admin/knowledge` | 知识库文档上传、发布、重建索引 |
+| 内容管理 | `GET/PUT` | `/api/admin/configs` | 系统参数 |
+| 数据分析 | `GET` | `/api/admin/stats` | 运营统计 |
+| 数据分析 | `GET` | `/api/admin/chat-logs` | 问答日志 |
+| 数据分析 | `GET` | `/api/admin/audit-logs` | 审计日志 |
+
+### 统一响应结构
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {},
+  "traceId": "b7f3c1d9a2e4",
+  "timestamp": "2026-01-01T10:00:00Z"
+}
 ```
 
-本地开发代理目标也可通过 `VITE_API_PROXY_TARGET` 修改。完整说明见 [`frontend/README.md`](frontend/README.md) 和 [`backend/README.md`](backend/README.md)。
+`code = 0` 表示业务成功；非 0 时由 `ErrorCode` 给出稳定的业务错误标识，`traceId` 可关联服务端日志。
 
-## 目录结构
+### 调用示例
 
-```text
-AIDigitalPersona/
-├─ frontend/                      独立 Vue 3 SPA
-│  ├─ public/models/              运行时 GLB 与预览页
-│  ├─ src/api/                    统一 API 客户端
-│  ├─ src/components/             三维场景、数字人、对话
-│  ├─ src/views/                  公众端、管理端、登录页
-│  └─ README.md                   前端开发与部署说明
-├─ backend/                       独立 Spring Boot REST API
-│  ├─ src/main/java/              控制器、服务、领域、算法
-│  ├─ src/main/resources/        配置、知识资料、Flyway 迁移
-│  ├─ src/test/                   后端测试
-│  └─ README.md                   后端开发与部署说明
-├─ tools/campus_map2/             可复现的校园建模管线
-│  ├─ layout.py                   建筑/道路/广场的像素坐标真源
-│  ├─ build.py                    Blender 几何、材质、渲染和 GLB 导出
-│  ├─ export_backend.py           生成 V8 SQL 与布局清单
-│  └─ scripts/                    对比图与网页截图辅助脚本
-├─ docs/
-│  ├─ 01_requirements/            需求规格说明书
-│  ├─ 02-architecture/            项目介绍与技术说明
-│  ├─ 03-modeling/                建模说明、渲染图和布局清单
-│  ├─ assets/maps/                建模依据与参考地图
-│  └─ models/                     可编辑 Blender 工程
-├─ scripts/start-optimized.ps1    启动 PostgreSQL 档案的便捷脚本
-├─ README.md
-├─ .editorconfig
-└─ .gitignore
+```bash
+curl -X POST http://localhost:8080/api/public/chat \
+  -H "Content-Type: application/json" \
+  -d '{"sessionId":"demo-session","message":"从校门去图书馆怎么走？","currentPointId":1}'
 ```
 
-`CLI-Anything` **不属于本项目源码**，不会出现在仓库目录中。它是 Codex 的全局能力，安装位置与项目分离：
-
-```text
-%USERPROFILE%\.codex\skills\cli-anything       # Codex 识别的 Skill
-%USERPROFILE%\.codex\vendor\CLI-Anything        # 可选的上游源码/harness
-```
-
-因此不要把 `git clone CLI-Anything` 或 `codex-skill/scripts/install.sh` 执行在项目根目录。建模说明见 [`docs/03-modeling/README.md`](docs/03-modeling/README.md)。
-
-## 三维建模管线
-
-```text
-docs/assets/maps/地图2.png
-  → tools/campus_map2/layout.py      定义建筑、道路和广场坐标
-  → tools/campus_map2/build.py       Blender 生成、渲染、保存、导出
-  → frontend/public/models/campus-buildings.glb
-  → tools/campus_map2/export_backend.py
-  → docs/03-modeling/campus-layout.json
-  → backend/src/main/resources/db/migration/postgresql/V8__map2_campus_alignment.sql
-```
-
-模型包含 68 个 mesh、44 个材质、503,350 个三角面，GLB 约 23.99 MB。顶视正交图与原始地图保持 1706×1320 同尺寸对齐。
+---
 
 ## 测试
 
-```powershell
+```bash
+# 前端：单元测试 + 类型检查 + 生产构建
 cd frontend
 npm test
 npm run build
 
-cd ..\backend
-.\mvnw.cmd test -q `
-  "-Dspring.datasource.url=jdbc:h2:mem:testdb;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH"
+# 后端：单元测试与集成测试
+cd backend
+./mvnw test          # Windows: .\mvnw.cmd test
 ```
 
-## 文档
+覆盖重点：
 
-- [项目介绍（技术栈、功能、接口、算法、部署）](docs/02-architecture/项目介绍.md)
-- [需求规格说明书](docs/01_requirements/湖北工程学院新技术学院AI数字人校园导览系统_需求规格说明书_PRD.md)
-- [三维建模与渲染说明](docs/03-modeling/README.md)
-- [文档索引](docs/README.md)
+- 前端：侧栏折叠/互斥切换、聊天气泡渲染、数字人状态机。
+- 后端：意图识别、文本切块、本地向量、A\* 路径规划、OpenAPI 文档生成、接口文档禁用开关。
+
+---
+
+## 目录结构
+
+```text
+ai-campus-guide/
+├── frontend/                      独立 Vue 3 SPA
+│   ├── public/
+│   │   └── models/                运行时 GLB 与独立预览页
+│   ├── src/
+│   │   ├── api/                   统一 API 客户端
+│   │   ├── components/            三维场景、数字人、对话面板
+│   │   ├── views/                 公众端 / 管理端 / 登录页
+│   │   └── router.ts              路由与登录守卫
+│   └── README.md
+├── backend/                       独立 Spring Boot REST API
+│   ├── src/main/java/
+│   │   ├── controller/            REST 接口
+│   │   ├── service/               业务编排（问答、检索、路径、内容）
+│   │   ├── algorithm/             意图识别、向量、分块、A*
+│   │   ├── domain/                领域模型
+│   │   └── config/                安全、CORS、OpenAPI、演示数据
+│   ├── src/main/resources/
+│   │   ├── db/migration/          Flyway 迁移（default / postgresql）
+│   │   └── application.yml
+│   └── README.md
+├── tools/campus_map2/             可复现的三维建模管线
+│   ├── layout.py                  建筑/道路/广场坐标真源
+│   ├── build.py                   Blender 几何、材质、渲染、GLB 导出
+│   └── export_backend.py          生成 SQL 与布局清单
+├── docs/
+│   ├── 01_requirements/           需求规格说明书
+│   ├── 02-architecture/           项目介绍与技术说明
+│   ├── 03-modeling/               建模说明、渲染图、布局清单
+│   ├── assets/maps/               建模依据地图
+│   └── models/                    可编辑 Blender 工程
+├── scripts/                       本地启动辅助脚本
+└── README.md
+```
+
+---
+
+## 三维建模管线
+
+模型严格依据 `docs/assets/maps/地图2.png` 的标注、轮廓与相对位置构建。底图没有层数与立面信息，相关部分属于合理推断；未标注的建筑体量按宿舍或配套用房处理。
+
+```text
+docs/assets/maps/地图2.png
+  → tools/campus_map2/layout.py        定义建筑、道路、广场的像素坐标
+  → tools/campus_map2/build.py         Blender 生成几何、材质、渲染、导出
+  → frontend/public/models/campus-buildings.glb
+  → tools/campus_map2/export_backend.py
+  → docs/03-modeling/campus-layout.json
+  → backend/.../V8__map2_campus_alignment.sql
+```
+
+产物规模：**68 个 mesh、44 个材质、503,350 个三角面**，GLB 约 24 MB；顶视正交渲染与原始地图保持 1706×1320 同尺寸对齐，可用 `docs/03-modeling/renders/00_map_vs_top.png` 直接比对。
+
+完整说明见 [`docs/03-modeling/README.md`](docs/03-modeling/README.md)。
+
+> **关于 CLI-Anything**：它属于 Codex 的全局建模能力，不进入本仓库。安装位置为 `%USERPROFILE%\.codex\skills\cli-anything`，上游源码建议放在 `%USERPROFILE%\.codex\vendor\CLI-Anything`。请勿在项目根目录执行 `git clone`。
+
+---
+
+## 生产部署
+
+推荐的同源反向代理结构：
+
+```text
+Nginx / Caddy
+  ├── /        → frontend/dist 静态文件（SPA history fallback）
+  ├── /api     → 127.0.0.1:8080
+  └── /models  → 前端静态 GLB（启用 Brotli 与长缓存）
+```
+
+### 前端构建
+
+```bash
+cd frontend
+npm ci
+npm run build        # 产物位于 dist/
+```
+
+若 API 使用独立域名：
+
+```bash
+VITE_API_BASE_URL=https://api.example.edu.cn npm run build
+```
+
+### 后端
+
+```bash
+cd backend
+./mvnw clean package -DskipTests
+java -jar target/campus-guide-1.0.0.jar \
+  --spring.profiles.active=postgres
+```
+
+生产环境务必设置：
+
+```bash
+APP_JWT_SECRET=<32+ 字符随机串>
+APP_CORS_ORIGIN=https://guide.example.edu.cn
+KNIFE4J_ENABLED=false
+AI_ENABLED=true
+AI_API_KEY=<your-key>
+```
+
+---
 
 ## 已知限制
 
-- 底图没有层数标注，模型层数与立面为合理推断。
-- 演示档案只加载 H2 的 V1–V4 迁移；完整点位/建筑/路网空间数据需使用 `postgres` 档案。
-- 默认演示用户转接本地 FAQ/向量检索；远程 LLM、ASR、TTS 需显式配置。
-- GLB 体积较大，生产环境建议启用压缩、缓存，后续可增加 Draco/Meshopt 与 LOD。
+- 底图不含层数与立面标注，模型层数、外立面为合理推断，非测绘成果。
+- `demo` 档案只加载 H2 的 `V1–V4` 迁移；完整建筑、路网与空间检索需使用 `postgres` 档案。
+- GLB 约 24 MB，尚未接入 Draco/Meshopt 压缩与 LOD，弱网环境首屏较慢；建议生产环境启用压缩与长缓存。
+- 外部 LLM / ASR / TTS 需显式配置，默认关闭，问答全部走本地检索链路。
+- 未见 `LICENSE` 文件，开源前需明确许可证。
+
+---
+
+## 路线图
+
+- [ ] 模型压缩：Draco / Meshopt + 分块加载 + LOD
+- [ ] 问答流式输出（SSE），降低首字等待
+- [ ] 管理端点位/建筑可视化编辑器（地图上直接拖拽）
+- [ ] 多语言导览（中 / 英）
+- [ ] 无障碍优化：键盘导航、屏幕阅读器标签、高对比模式
+- [ ] Docker Compose 一键启动（前端 + 后端 + PostgreSQL）
+- [ ] 端到端测试（Playwright）
+
+---
+
+## 贡献指南
+
+1. Fork 本仓库并创建特性分支：`git checkout -b feat/your-feature`
+2. 提交前请确保通过本地校验：
+
+   ```bash
+   cd frontend && npm test && npm run build
+   cd ../backend && ./mvnw test
+   ```
+
+3. 提交信息遵循 [Conventional Commits](https://www.conventionalcommits.org/)：
+   `feat: ...` / `fix: ...` / `docs: ...` / `refactor: ...` / `test: ...` / `chore: ...`
+4. 发起 Pull Request，并在描述中说明**改动动机、方案取舍与验证方式**。
+
+---
+
+## 许可证
+
+本仓库当前**尚未添加开源许可证文件**。在补充 `LICENSE` 之前，默认保留所有权利。
+
+若计划公开协作，推荐使用 [MIT License](https://choosealicense.com/licenses/mit/)；如涉及校内数据或第三方素材，请先确认授权范围。
+
+---
+
+## 致谢
+
+- [Three.js](https://threejs.org/) — WebGL 三维渲染
+- [Vue](https://vuejs.org/) / [Vite](https://vite.dev/) — 前端框架与构建
+- [Spring Boot](https://spring.io/) / [MyBatis-Plus](https://baomidou.com/) — 后端框架
+- [Knife4j](https://doc.xiaominfo.com/) / [springdoc-openapi](https://springdoc.org/) — 接口文档
+- [Blender](https://www.blender.org/) — 三维建模与渲染
+- [CLI-Anything](https://github.com/HKUDS/CLI-Anything) — Blender 自动化建模能力
+
+---
+
+<div align="center">
+<sub>湖北工程学院新技术学院 · 校园数字导览演示项目</sub>
+</div>
