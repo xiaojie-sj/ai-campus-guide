@@ -50,6 +50,9 @@ management:
       show-details: when_authorized
 
 app:
+  links:
+    # Hint printed at startup; point it at the real domain in production.
+    frontend: ${APP_FRONTEND_URL:http://127.0.0.1:5173}
   seed:
     # Idempotent bootstrap of demo accounts and the bundled knowledge set.
     demo-data: ${APP_SEED_DEMO_DATA:true}
