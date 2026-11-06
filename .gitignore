@@ -70,3 +70,7 @@ CLI-Anything/
 submission/_staging/
 submission/*.zip
 
+
+# PPT build intermediates and validator receipts
+submission/.ppt-build/
+.codex-finalizer/

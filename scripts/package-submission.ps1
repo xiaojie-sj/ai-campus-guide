@@ -12,6 +12,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$Class,
     [Parameter(Mandatory = $true)][string]$Name,
+    [string]$StudentId = '',
     [string]$Project = 'AI数字人校园导览系统',
     [string]$OutDir = ''
 )
@@ -25,6 +26,23 @@ $zipName = '{0}{1}({2}).zip' -f $Class, $Name, $Project
 $stage = Join-Path $root ('submission\_staging\' + [IO.Path]::GetFileNameWithoutExtension($zipName))
 if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
+
+$info = @"
+归档信息
+========
+班号：$Class
+学号：$StudentId
+姓名：$Name
+项目名：$Project
+打包时间：$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+内容清单：
+  00_归档信息.txt
+  01_系统需求分析
+  02_系统数据库脚本
+  03_系统源代码（前端已剔除 node_modules / dist）
+  04_答辩PPT
+"@
+$info | Set-Content -LiteralPath (Join-Path $stage '00_归档信息.txt') -Encoding UTF8
 
 Write-Output '==> 01 系统需求分析'
 New-Item -ItemType Directory -Force -Path (Join-Path $stage '01_系统需求分析') | Out-Null
