@@ -65,12 +65,15 @@ tools/campus_map2/analysis/
 # ---------------------------------------------------------------------------
 CLI-Anything/
 # ---------------------------------------------------------------------------
-# Submission packaging (generated locally, never committed)
-# ---------------------------------------------------------------------------
-submission/_staging/
-submission/*.zip
 
 
 # PPT build intermediates and validator receipts
 submission/.ppt-build/
 .codex-finalizer/
+
+
+
+# ---------------------------------------------------------------------------
+# Submission deliverables for the course teacher: local-only, never in repo
+# ---------------------------------------------------------------------------
+submission/
