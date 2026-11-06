@@ -213,7 +213,7 @@ flowchart LR
 | 项 | 标准 | 说明 |
 | --- | --- | --- |
 | JDK | 17（本仓库以 Amazon Corretto 17.0.21 验证） | Spring Boot 3.5 要求 17+ |
-| 构建工具 | **仓库自带 Maven Wrapper（3.10.0）** | 任何机器执行 `./mvnw` 即可获得一致版本，无需全局安装 Maven |
+| 构建工具 | **仓库自带 Maven Wrapper（3.9.11）** | 任何机器执行 `./mvnw` 即可获得一致版本，无需全局安装 Maven |
 | Maven 版本下限 | 3.6.3 | Spring Boot 3.5 管理的插件（如 maven-compiler-plugin 3.14）硬性要求 3.6.3+，3.6.1 等旧版会直接构建失败 |
 | 前端 | Node 20+ / npm 10+ | `npm ci` 依据 `package-lock.json` 锁定依赖 |
 | 依赖镜像 | 可选阿里云镜像 | 见 `docs/04-deployment/maven-settings-aliyun.xml`，仅加速下载，不改变依赖清单 |
@@ -309,7 +309,7 @@ scripts\start-frontend.ps1 -Port 5174 -ApiTarget http://localhost:9080
 **后端 · IntelliJ IDEA**
 
 1. `File → Open` 选择 `backend/` 目录，作为独立工程打开。
-2. `Settings → Build, Execution, Deployment → Build Tools → Maven`：Maven home 选 **Use Maven wrapper**（不要选 3.6.1）；`Project Structure → SDK` 选 corretto-17.0.21。
+2. `Settings → Build, Execution, Deployment → Build Tools → Maven`：Maven home 选 **Use Maven wrapper** 或本地 Maven 3.9.11（二者同版本；不要选 3.6.1 等旧版）；`Project Structure → SDK` 选 corretto-17.0.21。
 3. 确认数据库在跑：IDEA 终端执行 `.\scripts\start-postgres.ps1`，或确认 55432 端口已在监听。
 4. 右键 `CampusGuideApplication` → **Run**；默认端口 8080，启动时自动执行 Flyway 迁移。
 
