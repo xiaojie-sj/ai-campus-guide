@@ -1,0 +1,15 @@
+# Test-only overrides: an in-memory database without migrations keeps context
+# and documentation tests fast and deterministic. Schema-level behaviour is
+# verified against PostgreSQL in a real environment, not in unit tests.
+spring:
+  datasource:
+    url: jdbc:h2:mem:campus_guide_test;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  flyway:
+    enabled: false
+
+app:
+  seed:
+    demo-data: false

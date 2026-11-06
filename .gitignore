@@ -64,3 +64,9 @@ tools/campus_map2/analysis/
 # Keep its clone under ~/.codex/vendor/CLI-Anything, never inside this repo.
 # ---------------------------------------------------------------------------
 CLI-Anything/
+# ---------------------------------------------------------------------------
+# Submission packaging (generated locally, never committed)
+# ---------------------------------------------------------------------------
+submission/_staging/
+submission/*.zip
+

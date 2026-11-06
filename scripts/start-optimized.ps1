@@ -13,7 +13,7 @@ if (-not (Get-NetTCPConnection -State Listen -LocalPort 8080 -ErrorAction Silent
     }
     $java = (Get-Command java.exe).Source
     Start-Process -FilePath $java `
-        -ArgumentList "-jar", $jarFile, "--spring.profiles.active=postgres" `
+        -ArgumentList "-jar", $jarFile `
         -WorkingDirectory $backendDir `
         -RedirectStandardOutput (Join-Path $runtimeDir "backend.out.log") `
         -RedirectStandardError (Join-Path $runtimeDir "backend.err.log") `

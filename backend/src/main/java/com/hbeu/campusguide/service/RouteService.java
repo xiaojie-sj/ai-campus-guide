@@ -8,12 +8,11 @@ import com.hbeu.campusguide.domain.RoadNode;
 import com.hbeu.campusguide.dto.NavigationStep;
 import com.hbeu.campusguide.dto.RoutePlan;
 import com.hbeu.campusguide.dto.SourceRef;
-import org.springframework.core.env.Environment;
+import com.hbeu.campusguide.config.DatabaseCapabilities;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -35,13 +34,13 @@ public class RouteService {
             PathPlanner pathPlanner,
             ConfigService configService,
             JdbcTemplate jdbcTemplate,
-            Environment environment
+            DatabaseCapabilities databaseCapabilities
     ) {
         this.catalogService = catalogService;
         this.pathPlanner = pathPlanner;
         this.configService = configService;
         this.jdbcTemplate = jdbcTemplate;
-        this.pgRoutingEnabled = Arrays.asList(environment.getActiveProfiles()).contains("postgres");
+        this.pgRoutingEnabled = databaseCapabilities.pgRouting();
     }
 
     public RoutePlan plan(Long startPointId, Long endPointId) {

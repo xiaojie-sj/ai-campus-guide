@@ -24,7 +24,7 @@ import com.hbeu.campusguide.mapper.RoadEdgeMapper;
 import com.hbeu.campusguide.mapper.RoadNodeMapper;
 import com.hbeu.campusguide.mapper.TourRouteMapper;
 import com.hbeu.campusguide.mapper.TourStopMapper;
-import org.springframework.core.env.Environment;
+import com.hbeu.campusguide.config.DatabaseCapabilities;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -52,7 +52,7 @@ public class CatalogService {
     private final ConfigService configService;
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
-    private final boolean postgresEnabled;
+    private final boolean spatialEnabled;
 
     public CatalogService(
             CampusPointMapper pointMapper,
@@ -64,7 +64,7 @@ public class CatalogService {
             ConfigService configService,
             JdbcTemplate jdbcTemplate,
             ObjectMapper objectMapper,
-            Environment environment
+            DatabaseCapabilities databaseCapabilities
     ) {
         this.pointMapper = pointMapper;
         this.nodeMapper = nodeMapper;
@@ -75,7 +75,7 @@ public class CatalogService {
         this.configService = configService;
         this.jdbcTemplate = jdbcTemplate;
         this.objectMapper = objectMapper;
-        this.postgresEnabled = Arrays.asList(environment.getActiveProfiles()).contains("postgres");
+        this.spatialEnabled = databaseCapabilities.postgis();
     }
 
     public BootstrapResponse bootstrap() {
@@ -98,7 +98,7 @@ public class CatalogService {
     }
 
     public List<CampusBuildingView> campusBuildings() {
-        if (!postgresEnabled) return List.of();
+        if (!spatialEnabled) return List.of();
         return jdbcTemplate.query("""
                 SELECT id, point_id, name, category, height, color_hex, footprint_json
                 FROM campus_building

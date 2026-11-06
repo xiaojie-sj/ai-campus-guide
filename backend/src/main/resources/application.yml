@@ -1,8 +1,6 @@
 spring:
   application:
-    name: hbeutc-campus-guide
-  profiles:
-    default: demo
+    name: campus-guide
   jackson:
     time-zone: Asia/Shanghai
     default-property-inclusion: non_null
@@ -10,9 +8,17 @@ spring:
     multipart:
       max-file-size: 50MB
       max-request-size: 55MB
+  datasource:
+    url: ${POSTGRES_URL:jdbc:postgresql://localhost:${PG_PORT:55432}/${PG_DB:campus_guide}}
+    driver-class-name: org.postgresql.Driver
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:123456}
+    hikari:
+      pool-name: campus-guide-pool
+      maximum-pool-size: ${PG_POOL_MAX:10}
   flyway:
     enabled: true
-    locations: classpath:db/migration/default
+    locations: classpath:db/migration
     baseline-on-migrate: true
 
 server:
@@ -44,6 +50,9 @@ management:
       show-details: when_authorized
 
 app:
+  seed:
+    # Idempotent bootstrap of demo accounts and the bundled knowledge set.
+    demo-data: ${APP_SEED_DEMO_DATA:true}
   jwt:
     secret: ${APP_JWT_SECRET:demo-only-change-this-jwt-secret-32-chars-minimum}
     ttl-minutes: ${APP_JWT_TTL_MINUTES:480}
@@ -70,48 +79,3 @@ app:
     speech-model: ${AI_TTS_MODEL:gpt-4o-mini-tts}
     speech-voice: ${AI_TTS_VOICE:alloy}
     timeout-seconds: ${AI_TIMEOUT_SECONDS:45}
-
----
-spring:
-  config:
-    activate:
-      on-profile: demo
-  datasource:
-    url: jdbc:h2:file:./data/campus-guide;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
-
----
-spring:
-  config:
-    activate:
-      on-profile: mysql
-  datasource:
-    url: jdbc:mysql://localhost:3306/campus_guide?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    username: root
-    password: 123456
-  h2:
-    console:
-      enabled: false
-
----
-spring:
-  config:
-    activate:
-      on-profile: postgres
-  datasource:
-    url: ${POSTGRES_URL:jdbc:postgresql://localhost:${PG_PORT:55432}/campus_guide}
-    driver-class-name: org.postgresql.Driver
-    username: ${POSTGRES_USER:postgres}
-    password: ${POSTGRES_PASSWORD:123456}
-  flyway:
-    locations: classpath:db/migration/postgresql
-  h2:
-    console:
-      enabled: false

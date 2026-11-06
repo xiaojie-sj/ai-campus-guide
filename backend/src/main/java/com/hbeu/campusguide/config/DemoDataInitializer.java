@@ -6,6 +6,7 @@ import com.hbeu.campusguide.mapper.AdminUserMapper;
 import com.hbeu.campusguide.service.AdminAuthService;
 import com.hbeu.campusguide.service.KnowledgeIngestionService;
 import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 
@@ -17,6 +18,7 @@ import java.util.List;
  * passwords are hashed at runtime and must be changed before any public launch.
  */
 @Component
+@ConditionalOnProperty(prefix = "app.seed", name = "demo-data", havingValue = "true", matchIfMissing = true)
 public class DemoDataInitializer implements ApplicationRunner {
     private final AdminUserMapper adminUserMapper;
     private final AdminAuthService authService;

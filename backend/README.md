@@ -10,13 +10,13 @@
 - Flyway
 - JJWT 0.12
 - Apache Tika
-- H2 / MySQL / PostgreSQL + PostGIS + pgRouting + pgvector
+- PostgreSQL + PostGIS + pgRouting + pgvector（H2 仅 test 作用域）
 
 ## 环境要求
 
 - JDK 17+
 - 仓库自带的 Maven Wrapper（无需全局安装 Maven）
-- 默认 `demo` 档案无需外部数据库
+- PostgreSQL 14+（仓库附便携版启动脚本）
 
 ## 构建与启动
 
@@ -46,62 +46,32 @@ java -jar target\campus-guide-1.0.0.jar
 
 生产环境设置环境变量 `KNIFE4J_ENABLED=false`，会同时关闭 OpenAPI 生成和 `/doc.html` 调试入口。
 
-## 数据库档案
+## 数据库
 
-| Profile | 数据库 | Flyway 目录 | 用途 |
-| --- | --- | --- | --- |
-| `demo`（默认） | H2 文件库 `./data/campus-guide` | `db/migration/default` V1–V4 | 零依赖演示与开发 |
-| `mysql` | MySQL 8 | 默认迁移目录 | 中小规模部署 |
-| `postgres` | PostgreSQL + PostGIS | `db/migration/postgresql` V1–V8 | 完整空间数据、pgRouting、pgvector |
+PostgreSQL（含 PostGIS / pgRouting / pgvector）是唯一运行时数据库；H2 仅以 test 作用域服务于单元测试。
 
-### H2 演示档案
-
-```powershell
-java -jar target\campus-guide-1.0.0.jar
-```
-
-H2 控制台：<http://127.0.0.1:8080/h2-console>
-
-JDBC URL：`jdbc:h2:file:./data/campus-guide`
-
-用户名：`sa`，密码为空。H2 数据目录已被 `.gitignore` 排除。
-
-### PostgreSQL 完整档案
-
-需要 PostgreSQL 15+、PostGIS、pgRouting、pgvector。仓库包含便捷启动脚本：
-
-```powershell
-.\..\scripts\start-optimized.ps1
-```
-
-只启动数据库：
+便携版启动（默认 55432 端口）：
 
 ```powershell
 .\scripts\start-postgres.ps1
 ```
 
-手动运行：
+或整体启动（数据库 + 后端 + 前端）：
+
+```powershell
+..\scripts\start-optimized.ps1
+```
+
+手动指定连接：
 
 ```powershell
 $env:POSTGRES_URL = "jdbc:postgresql://localhost:55432/campus_guide"
 $env:POSTGRES_USER = "postgres"
 $env:POSTGRES_PASSWORD = "123456"
-java -jar target\campus-guide-1.0.0.jar --spring.profiles.active=postgres
+java -jar target\campus-guide-1.0.0.jar
 ```
 
-缺少 pgRouting 时，路径规划自动回退到 Java 内存 A*。
-
-### MySQL 档案
-
-先创建 `campus_guide` 数据库，再通过命令行覆盖连接参数：
-
-```powershell
-java -jar target\campus-guide-1.0.0.jar `
-  --spring.profiles.active=mysql `
-  --spring.datasource.url="jdbc:mysql://localhost:3306/campus_guide?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false" `
-  --spring.datasource.username=root `
-  --spring.datasource.password=your-password
-```
+启动时 `DatabaseCapabilities` 探测 PostGIS / pgRouting 是否可用：缺少 pgRouting 时路径规划自动回退 Java 内存 A*。
 
 ## 环境变量
 
@@ -193,9 +163,9 @@ backend/
 │  ├─ config/            JWT、CORS、拦截器、配置
 │  └─ common/            统一响应、异常、TraceId
 ├─ src/main/resources/
-│  ├─ application.yml    多 profile 配置
+│  ├─ application.yml    单一数据源配置（环境变量覆盖）
 │  ├─ demo-knowledge/    初始公开知识资料
-│  └─ db/migration/      default / postgresql 两套 Flyway 迁移
+│  └─ db/migration/      Flyway 迁移 V1–V8（PostgreSQL 唯一真源）
 ├─ src/test/java/        单元与上下文测试
 ├─ scripts/              PostgreSQL 启动辅助脚本
 └─ pom.xml
@@ -205,18 +175,17 @@ backend/
 
 - Flyway 在启动时自动执行迁移，禁止修改已在共享环境执行过的历史脚本。
 - 新变更应新增版本号更高的迁移文件。
-- `default` 与 `postgresql` 目录是两套独立迁移链，schema 特性不同。
+- 迁移链唯一：V1–V8 顺序执行，V5 起依赖 PostGIS / pgvector / pgRouting。
 - 地图 2 的完整点位、建筑轮廓、路网和相机数据位于 `V8__map2_campus_alignment.sql`。
 - 重新生成 V8 与布局清单：在项目根目录运行 `python tools/campus_map2/export_backend.py`。
 
 ## 测试
 
-后端运行时会锁定 H2 文件，因此测试应使用独立内存库：
+测试通过 `test` profile 使用 H2 内存库并跳过 Flyway（见 `src/test/resources/application-test.yml`），无需本地数据库：
 
 ```powershell
 cd backend
-.\mvnw.cmd test -q `
-  "-Dspring.datasource.url=jdbc:h2:mem:testdb;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH"
+.\mvnw.cmd test
 ```
 
 只运行单个测试类：

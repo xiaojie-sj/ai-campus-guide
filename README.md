@@ -73,7 +73,8 @@
 - [系统架构](#系统架构)
 - [技术栈](#技术栈)
 - [快速开始](#快速开始)
-- [数据库与运行档案](#数据库与运行档案)
+- [数据库](#数据库)
+- [构建环境规范](#构建环境规范)
 - [配置说明](#配置说明)
 - [API 文档](#api-文档)
 - [测试](#测试)
@@ -136,7 +137,7 @@ flowchart LR
     end
 
     subgraph Data["数据层"]
-        DB[("H2 / MySQL / PostgreSQL")]
+        DB[("PostgreSQL 15+<br/>PostGIS · pgRouting · pgvector")]
         SPATIAL[("PostGIS · pgRouting · pgvector")]
         FILES[("知识库文件 / 上传媒体")]
     end
@@ -154,15 +155,6 @@ flowchart LR
     ADMIN --> FILES
     CHAT -. "可选：组织回答 / ASR / TTS" .-> LLM
 ```
-
-### 前后端如何解耦
-
-项目由两个可独立开发、独立构建、独立部署的应用组成，**不使用「前端构建产物复制进后端」的耦合方式**：
-
-- `frontend/` 是纯 SPA，产物为静态文件，可部署到任意静态托管或 CDN。
-- `backend/` 只提供 REST API、认证、知识库与路径规划，不包含任何前端源码或构建产物。
-- 本地开发时由 Vite 把 `/api` 代理到 `http://localhost:8080`；生产环境由 Nginx / Caddy 做同源反向代理。
-- 两端只通过 JSON API 与 JWT 交互，目录结构与依赖互不侵入。
 
 ---
 
@@ -202,7 +194,7 @@ flowchart LR
 | **PostGIS** | 空间字段与距离计算 |
 | **pgRouting** | 数据库内最短路查询 |
 | **pgvector** | 知识块向量检索 |
-| **H2 / MySQL 8** | 零依赖演示 / 轻量部署档案 |
+| **H2** | 仅 `test` 作用域：单元测试内存数据库 |
 | **本地向量哈希** | 256 维特征哈希，无需外部 Embedding 服务即可跑通 RAG |
 | **A\* 路径规划** | 无 pgRouting 时的内存兜底实现 |
 
@@ -216,6 +208,28 @@ flowchart LR
 
 ---
 
+## 构建环境规范
+
+| 项 | 标准 | 说明 |
+| --- | --- | --- |
+| JDK | 17（本仓库以 Amazon Corretto 17.0.21 验证） | Spring Boot 3.5 要求 17+ |
+| 构建工具 | **仓库自带 Maven Wrapper（3.10.0）** | 任何机器执行 `./mvnw` 即可获得一致版本，无需全局安装 Maven |
+| Maven 版本下限 | 3.6.3 | Spring Boot 3.5 管理的插件（如 maven-compiler-plugin 3.14）硬性要求 3.6.3+，3.6.1 等旧版会直接构建失败 |
+| 前端 | Node 20+ / npm 10+ | `npm ci` 依据 `package-lock.json` 锁定依赖 |
+| 依赖镜像 | 可选阿里云镜像 | 见 `docs/04-deployment/maven-settings-aliyun.xml`，仅加速下载，不改变依赖清单 |
+
+### IntelliJ IDEA 配置
+
+1. `Settings → Build, Execution, Deployment → Build Tools → Maven`：Maven home path 选择 **Use Maven wrapper**（或本地 3.6.3+ 的 Maven）。
+2. `Project Structure → Project SDK`：选择 corretto-17.0.21，Language level 17。
+3. 右键 pom.xml → Maven → Reload Project；依赖全部来自 `pom.xml`，无需手工导 jar。
+
+### 换电脑部署
+
+1. 安装 JDK 17 与 Node 20+；
+2. 克隆仓库后直接 `backend\mvnw.cmd package` 与 `frontend\npm ci`，Wrapper 与 lockfile 保证依赖版本一致；
+3. 按[数据库](#数据库)一节准备 PostgreSQL 即可启动。
+
 ## 快速开始
 
 ### 环境要求
@@ -225,9 +239,9 @@ flowchart LR
 | JDK | 17+ | 必需 |
 | Node.js | 20+（建议 22） | 必需 |
 | npm | 10+ | 必需 |
-| PostgreSQL + PostGIS + pgRouting + pgvector | 15+ | 可选（完整空间数据） |
+| PostgreSQL + PostGIS + pgRouting + pgvector | 14+（建议 15+） | 必需（可用仓库便携版） |
 
-默认 `demo` 档案使用 H2 文件数据库，**无需安装任何数据库**即可启动。
+连接方式与环境变量见[数据库](#数据库)一节；工具链要求见[构建环境规范](#构建环境规范)。
 
 ### 1. 克隆仓库
 
@@ -271,29 +285,43 @@ npm run dev
 
 ---
 
-## 数据库与运行档案
+## 数据库
 
-| 档案 | 启动方式 | 数据库 | 适用场景 |
-| --- | --- | --- | --- |
-| `demo`（默认） | 直接启动 | H2 文件库 | 本地演示、快速上手 |
-| `mysql` | `--spring.profiles.active=mysql` | MySQL 8 | 常规校内部署 |
-| `postgres` | `--spring.profiles.active=postgres` | PostgreSQL + PostGIS + pgRouting + pgvector | 完整空间检索与最短路 |
+系统以 **PostgreSQL（含 PostGIS / pgRouting / pgvector）** 作为唯一运行时数据库。仓库只保留一套 Flyway 迁移（`backend/src/main/resources/db/migration`，V1–V8），启动时自动执行；H2 仅以 `test` 作用域存在于单元测试中，不参与运行。
 
-示例：
+### 启动数据库
 
-```bash
-java -jar target/campus-guide-1.0.0.jar --spring.profiles.active=postgres
+方式一：仓库自带的便携版 PostgreSQL 脚本（含三个扩展，适合教室 / 答辩等零配置环境）：
+
+```powershell
+backend\scripts\start-postgres.ps1        # 默认端口 55432
 ```
 
-或使用环境变量：
+方式二：使用已安装的 PostgreSQL，先建库与扩展：
 
-```bash
-SPRING_PROFILES_ACTIVE=postgres java -jar target/campus-guide-1.0.0.jar
+```sql
+CREATE DATABASE campus_guide;
+-- 连接到 campus_guide 后执行
+CREATE EXTENSION postgis;
+CREATE EXTENSION pgrouting;
+CREATE EXTENSION vector;
 ```
 
-> `demo` 档案只加载 H2 的 `V1–V4` 迁移；完整点位、建筑与路网空间数据在 `postgres` 档案下由 `V5–V8` 迁移建立。
+### 连接配置
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `POSTGRES_URL` | — | 设置后整体覆盖 JDBC URL |
+| `PG_PORT` | `55432` | 端口（自建实例通常为 5432） |
+| `PG_DB` | `campus_guide` | 库名 |
+| `POSTGRES_USER` | `postgres` | 用户名 |
+| `POSTGRES_PASSWORD` | `123456` | 密码，**生产必改** |
+| `PG_POOL_MAX` | `10` | HikariCP 连接池上限 |
+
+启动时 `DatabaseCapabilities` 会探测 `postgis_version()` 与 `pgr_version()`：扩展齐全时启用空间建筑与 pgRouting 最短路；缺失时自动降级为内存 A*，不会启动失败。
 
 ---
+
 
 ## 配置说明
 
@@ -422,7 +450,7 @@ ai-campus-guide/
 │   │   ├── domain/                领域模型
 │   │   └── config/                安全、CORS、OpenAPI、演示数据
 │   ├── src/main/resources/
-│   │   ├── db/migration/          Flyway 迁移（default / postgresql）
+│   │   ├── db/migration/          Flyway 迁移（V1–V8，PostgreSQL 唯一真源）
 │   │   └── application.yml
 │   └── README.md
 ├── tools/campus_map2/             可复现的三维建模管线
@@ -493,8 +521,7 @@ VITE_API_BASE_URL=https://api.example.edu.cn npm run build
 ```bash
 cd backend
 ./mvnw clean package -DskipTests
-java -jar target/campus-guide-1.0.0.jar \
-  --spring.profiles.active=postgres
+java -jar target/campus-guide-1.0.0.jar
 ```
 
 生产环境务必设置：
@@ -503,6 +530,8 @@ java -jar target/campus-guide-1.0.0.jar \
 APP_JWT_SECRET=<32+ 字符随机串>
 APP_CORS_ORIGIN=https://guide.example.edu.cn
 KNIFE4J_ENABLED=false
+POSTGRES_PASSWORD=<强密码>
+PG_PORT=5432
 AI_ENABLED=true
 AI_API_KEY=<your-key>
 ```
@@ -512,7 +541,7 @@ AI_API_KEY=<your-key>
 ## 已知限制
 
 - 底图不含层数与立面标注，模型层数、外立面为合理推断，非测绘成果。
-- `demo` 档案只加载 H2 的 `V1–V4` 迁移；完整建筑、路网与空间检索需使用 `postgres` 档案。
+- 空间建筑与 pgRouting 依赖 PostgreSQL 扩展；扩展缺失时自动降级（建筑列表为空 / 内存 A* 路径），不会导致启动失败。
 - GLB 约 24 MB，尚未接入 Draco/Meshopt 压缩与 LOD，弱网环境首屏较慢；建议生产环境启用压缩与长缓存。
 - 外部 LLM / ASR / TTS 需显式配置，默认关闭，问答全部走本地检索链路。
 - 未见 `LICENSE` 文件，开源前需明确许可证。
