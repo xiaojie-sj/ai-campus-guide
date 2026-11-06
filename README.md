@@ -302,6 +302,28 @@ scripts\start-frontend.ps1 -Port 5174 -ApiTarget http://localhost:9080
 
 一条命令全部拉起用 `scripts\start-all.ps1`（旧 `start-optimized.ps1` 保留为兼容入口）。
 
+### 在 IDE 中分开运行（IntelliJ IDEA + VS Code）
+
+两个目录互不依赖，可以各用一个 IDE 打开、各自启动：
+
+**后端 · IntelliJ IDEA**
+
+1. `File → Open` 选择 `backend/` 目录，作为独立工程打开。
+2. `Settings → Build, Execution, Deployment → Build Tools → Maven`：Maven home 选 **Use Maven wrapper**（不要选 3.6.1）；`Project Structure → SDK` 选 corretto-17.0.21。
+3. 确认数据库在跑：IDEA 终端执行 `.\scripts\start-postgres.ps1`，或确认 55432 端口已在监听。
+4. 右键 `CampusGuideApplication` → **Run**；默认端口 8080，启动时自动执行 Flyway 迁移。
+
+**前端 · VS Code**
+
+1. 打开 `frontend/` 目录；推荐安装扩展 **Vue - Official（Volar）**。
+2. 终端执行 `npm ci`（首次）→ `npm run dev`；默认 5173，`/api` 自动代理到 `http://localhost:8080`。
+
+**注意事项**
+
+- 同一端口只能有一个实例：从 IDE 启动前先执行 `scripts\stop.ps1`，避免端口占用。
+- 换端口并行：IDEA Run Configuration 环境变量 `SERVER_PORT=9080`；前端 `npm run dev -- --port 5174` 并设 `VITE_API_PROXY_TARGET=http://localhost:9080`。
+- 后端在 IDEA 中以 `backend/` 为工作目录运行，上传目录 `./data/uploads` 会落在 `backend/data/uploads`（已被 gitignore）。
+
 ---
 
 ## 数据库
