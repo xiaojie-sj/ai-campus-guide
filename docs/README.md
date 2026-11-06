@@ -7,6 +7,8 @@
 | [三维建模说明](03-modeling/README.md) | 地图 2 建模规则、资产、复现命令和验证结果 |
 | [校园布局清单](03-modeling/campus-layout.json) | 建筑、点位、道路和镜头预设的结构化坐标 |
 | [渲染成果](03-modeling/renders/) | 总览、顶视对齐、分区和网页端截图 |
+| [构建与部署约定](04-deployment/maven-settings-aliyun.xml) | 阿里云镜像配置模板（放入 `~/.m2/settings.xml`，全 Maven 入口生效） |
+| [提交归档材料](../submission/README.md) | 班级+姓名+(项目名).zip 的归档结构与一键打包 |
 
 ## 外部工具说明
 

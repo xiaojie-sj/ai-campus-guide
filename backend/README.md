@@ -59,7 +59,7 @@ PostgreSQL（含 PostGIS / pgRouting / pgvector）是唯一运行时数据库；
 或整体启动（数据库 + 后端 + 前端）：
 
 ```powershell
-..\scripts\start-optimized.ps1
+..\scripts\start-all.ps1
 ```
 
 手动指定连接：
@@ -72,6 +72,8 @@ java -jar target\campus-guide-1.0.0.jar
 ```
 
 启动时 `DatabaseCapabilities` 探测 PostGIS / pgRouting 是否可用：缺少 pgRouting 时路径规划自动回退 Java 内存 A*。
+
+> **双实例约定（本机）**：项目只使用便携版 PostgreSQL（55432）；D 盘安装的服务版（5432）供其他用途，不要在其上创建 campus_guide 库或执行迁移。迁移请勿在 Navicat 中手工跑，Flyway 会在后端启动时自动应用。
 
 ## 环境变量
 

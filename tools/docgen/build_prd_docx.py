@@ -21,7 +21,7 @@ from docx.text.paragraph import Paragraph
 from docx.text.run import Run
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "docs" / "01_requirements" / "湖北工程学院新技术学院AI数字人校园导览系统_需求规格说明书_PRD.md"
 OUTPUT = ROOT / "docs" / "01_requirements" / "湖北工程学院新技术学院AI数字人校园导览系统_需求规格说明书_PRD.docx"
 

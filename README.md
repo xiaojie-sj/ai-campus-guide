@@ -82,6 +82,7 @@
 - [三维建模管线](#三维建模管线)
 - [生产部署](#生产部署)
 - [已知限制](#已知限制)
+- [故障排查](#故障排查)
 - [路线图](#路线图)
 - [贡献指南](#贡献指南)
 - [许可证](#许可证)
@@ -332,7 +333,7 @@ scripts\start-frontend.ps1 -Port 5174 -ApiTarget http://localhost:9080
 
 ### 启动数据库
 
-方式一：仓库自带的便携版 PostgreSQL 脚本（含三个扩展，适合教室 / 答辩等零配置环境）：
+方式一：仓库自带的便携版 PostgreSQL 脚本（含三个扩展，适合教室 / 答辩等零配置环境）。**双实例约定（本机）**：D 盘安装的服务版 PostgreSQL（5432）供其他项目使用，不要在其上创建 campus_guide 库或执行迁移，避免混库。
 
 ```powershell
 backend\scripts\start-postgres.ps1        # 默认端口 55432
@@ -588,6 +589,16 @@ AI_API_KEY=<your-key>
 - 未见 `LICENSE` 文件，开源前需明确许可证。
 
 ---
+
+## 故障排查
+
+| 症状 | 原因与处理 |
+| --- | --- |
+| IDEA 依赖全红 / Maven 导入中断 | Apifox Helper 插件（`com.apifox.uploader`）会崩溃 IDEA 内嵌 Maven 导入进程：禁用该插件并重启 IDEA，再 Reload Maven；同时确认 Maven home 为 Wrapper 或 3.9.11 |
+| 构建报 `requires Maven version 3.6.3` | 使用了低于 3.6.3 的 Maven（如 3.6.1）：改用仓库 Wrapper 或本地 3.9.11 |
+| 依赖下载慢 | 将 `docs/04-deployment/maven-settings-aliyun.xml` 的阿里云镜像放入 `~/.m2/settings.xml` |
+| `CREATE EXTENSION postgis` 报错 | 在无空间扩展的 PostgreSQL（如本机安装版 5432）上跑了迁移：项目只用便携版 55432，迁移由后端启动时 Flyway 自动执行，无需手工跑 |
+| `Port 8080 already in use` | 已有实例在跑：`scripts\stop.ps1` 停止前后端后再从 IDE 启动 |
 
 ## 路线图
 
