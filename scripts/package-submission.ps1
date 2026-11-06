@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   按课程归档要求打包提交材料：班级+姓名+(项目名).zip

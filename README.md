@@ -283,6 +283,25 @@ npm run dev
 > **演示账号**：`admin`、`editor`、`reviewer`、`analyst`，密码均为 `Demo@123`。
 > 上线前必须修改密码与 JWT 密钥。
 
+### 分开运行（推荐日常开发）
+
+前端与后端各自独立生命周期，由三个脚本管理：
+
+```powershell
+scripts\start-backend.ps1     # PostgreSQL（按需）+ 后端 :8080，缺 jar 自动构建
+scripts\start-frontend.ps1    # 前端 :5173，缺 node_modules 自动 npm ci
+scripts\stop.ps1              # 停止前后端（默认保留 PostgreSQL；-IncludeDatabase 全停）
+```
+
+两个进程完全解耦：前端通过 Vite 代理把 `/api` 转发到 `VITE_API_PROXY_TARGET`（默认 `http://localhost:8080`）；后端 CORS 已放行 `localhost:5173` 与 `127.0.0.1:5173`。改端口并行运行示例：
+
+```powershell
+scripts\start-backend.ps1  -Port 9080
+scripts\start-frontend.ps1 -Port 5174 -ApiTarget http://localhost:9080
+```
+
+一条命令全部拉起用 `scripts\start-all.ps1`（旧 `start-optimized.ps1` 保留为兼容入口）。
+
 ---
 
 ## 数据库
