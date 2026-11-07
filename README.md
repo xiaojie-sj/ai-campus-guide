@@ -36,32 +36,8 @@
 
 ## 界面预览
 
-<p align="center">
-  <img src="docs/03-modeling/renders/10_system_preview.png" alt="系统三维可视化预览页" width="100%" />
-</p>
-
-<p align="center"><sub><b>系统三维可视化预览页</b> · 公众端三维导览界面（2544 × 1396）</sub></p>
-
-### 三维场景细节
-
-<table>
-  <tr>
-    <td width="50%"><img src="docs/03-modeling/renders/01_overview_hero.png" alt="三维校园总览" /></td>
-    <td width="50%"><img src="docs/03-modeling/renders/07_web_preview.png" alt="Web 端三维场景" /></td>
-  </tr>
-  <tr>
-    <td align="center"><sub>三维校园总览</sub></td>
-    <td align="center"><sub>浏览器内实时渲染</sub></td>
-  </tr>
-  <tr>
-    <td width="50%"><img src="docs/03-modeling/renders/05_gate_plaza.png" alt="门区广场" /></td>
-    <td width="50%"><img src="docs/03-modeling/renders/04_teaching_cluster.png" alt="教学建筑群" /></td>
-  </tr>
-  <tr>
-    <td align="center"><sub>门区与广场</sub></td>
-    <td align="center"><sub>教学建筑群</sub></td>
-  </tr>
-</table>
+> 本地启动 `frontend` 后即可查看公众端三维导览、数字人问答与管理端数据大屏。
+> 完整界面截图随课程交付包提供（`05_系统截图/`）；设计资料与渲染图保留在本地 `docs/`，不随仓库发布。
 
 ---
 
@@ -217,7 +193,7 @@ flowchart LR
 | 构建工具 | **仓库自带 Maven Wrapper（3.9.11）** | 任何机器执行 `./mvnw` 即可获得一致版本，无需全局安装 Maven |
 | Maven 版本下限 | 3.6.3 | Spring Boot 3.5 管理的插件（如 maven-compiler-plugin 3.14）硬性要求 3.6.3+，3.6.1 等旧版会直接构建失败 |
 | 前端 | Node 20+ / npm 10+ | `npm ci` 依据 `package-lock.json` 锁定依赖 |
-| 依赖镜像 | 可选阿里云镜像 | 见 `docs/04-deployment/maven-settings-aliyun.xml`，仅加速下载，不改变依赖清单 |
+| 依赖镜像 | 可选阿里云镜像 | 仅加速依赖下载，不改变依赖清单 |
 
 ### IntelliJ IDEA 配置
 
@@ -479,7 +455,7 @@ pwsh -NoProfile -File scripts/test-admin.ps1 -IncludeRateLimit -IncludeLargeFile
 
 - 前端：侧栏折叠/互斥切换、聊天气泡渲染、数字人状态机、登录跳转安全、三维场景刷新不闪回降级地图。
 - 后端：意图识别、文本切块、本地向量、A\* 路径规划、OpenAPI 文档生成、接口文档禁用开关、Cookie 会话撤销、CSRF、角色越权矩阵、知识库 TXT/PDF/DOCX 导入与发布流程。
-- 完整手工验收步骤、账号权限矩阵、知识库测试数据与清理 SQL 见 [docs/05-testing/admin-test-cases.md](docs/05-testing/admin-test-cases.md)。
+- 完整手工验收步骤、账号权限矩阵、知识库测试数据与清理 SQL 保留在本地 `docs/05-testing/`（不随仓库发布）。
 
 ---
 
@@ -511,12 +487,6 @@ ai-campus-guide/
 │   ├── layout.py                  建筑/道路/广场坐标真源
 │   ├── build.py                   Blender 几何、材质、渲染、GLB 导出
 │   └── export_backend.py          生成 SQL 与布局清单
-├── docs/
-│   ├── 01_requirements/           需求规格说明书
-│   ├── 02-architecture/           项目介绍与技术说明
-│   ├── 03-modeling/               建模说明、渲染图、布局清单
-│   ├── assets/maps/               建模依据地图
-│   └── models/                    可编辑 Blender 工程
 ├── scripts/                       本地启动辅助脚本
 └── README.md
 ```
@@ -525,21 +495,21 @@ ai-campus-guide/
 
 ## 三维建模管线
 
-模型严格依据 `docs/assets/maps/地图2.png` 的标注、轮廓与相对位置构建。底图没有层数与立面信息，相关部分属于合理推断；未标注的建筑体量按宿舍或配套用房处理。
+模型严格依据校园底图（本地 `docs/assets/maps/地图2.png`，不随仓库发布）的标注、轮廓与相对位置构建。底图没有层数与立面信息，相关部分属于合理推断；未标注的建筑体量按宿舍或配套用房处理。
 
 ```text
-docs/assets/maps/地图2.png
+校园底图（本地 docs/assets/maps/地图2.png）
   → tools/campus_map2/layout.py        定义建筑、道路、广场的像素坐标
   → tools/campus_map2/build.py         Blender 生成几何、材质、渲染、导出
   → frontend/public/models/campus-buildings.glb
   → tools/campus_map2/export_backend.py
-  → docs/03-modeling/campus-layout.json
+  → 建模布局清单（本地 docs/03-modeling/campus-layout.json）
   → backend/.../V8__map2_campus_alignment.sql
 ```
 
-产物规模：**68 个 mesh、44 个材质、503,350 个三角面**，GLB 约 24 MB；顶视正交渲染与原始地图保持 1706×1320 同尺寸对齐，可用 `docs/03-modeling/renders/00_map_vs_top.png` 直接比对。
+产物规模：**68 个 mesh、44 个材质、503,350 个三角面**，GLB 约 24 MB；顶视正交渲染与原始地图保持 1706×1320 同尺寸对齐，可用本地 `docs/03-modeling/renders/00_map_vs_top.png` 比对。
 
-完整说明见 [`docs/03-modeling/README.md`](docs/03-modeling/README.md)。
+完整建模说明保留在本地 `docs/03-modeling/README.md`（不随仓库发布）。
 
 > **关于 CLI-Anything**：它属于 Codex 的全局建模能力，不进入本仓库。安装位置为 `%USERPROFILE%\.codex\skills\cli-anything`，上游源码建议放在 `%USERPROFILE%\.codex\vendor\CLI-Anything`。请勿在项目根目录执行 `git clone`。
 
@@ -628,7 +598,7 @@ AI_API_KEY=<your-key>
 | --- | --- |
 | IDEA 依赖全红 / Maven 导入中断 | Apifox Helper 插件（`com.apifox.uploader`）会崩溃 IDEA 内嵌 Maven 导入进程：禁用该插件并重启 IDEA，再 Reload Maven；同时确认 Maven home 为 Wrapper 或 3.9.11 |
 | 构建报 `requires Maven version 3.6.3` | 使用了低于 3.6.3 的 Maven（如 3.6.1）：改用仓库 Wrapper 或本地 3.9.11 |
-| 依赖下载慢 | 将 `docs/04-deployment/maven-settings-aliyun.xml` 的阿里云镜像放入 `~/.m2/settings.xml` |
+| 依赖下载慢 | 在 `~/.m2/settings.xml` 中配置阿里云 Maven 镜像 |
 | `CREATE EXTENSION postgis` 报错 | 在无空间扩展的 PostgreSQL（如本机安装版 5432）上跑了迁移：项目只用便携版 55432，迁移由后端启动时 Flyway 自动执行，无需手工跑 |
 | `Port 8080 already in use` | 已有实例在跑：`scripts\stop.ps1` 停止前后端后再从 IDE 启动 |
 
