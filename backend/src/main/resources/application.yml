@@ -24,6 +24,10 @@ spring:
 server:
   port: ${SERVER_PORT:8080}
   shutdown: graceful
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
 
 # OpenAPI / Knife4j UI. Set KNIFE4J_ENABLED=false in production.
 springdoc:
@@ -47,7 +51,7 @@ management:
         include: health,info
   endpoint:
     health:
-      show-details: when_authorized
+      show-details: never
 
 app:
   links:
@@ -56,9 +60,23 @@ app:
   seed:
     # Idempotent bootstrap of demo accounts and the bundled knowledge set.
     demo-data: ${APP_SEED_DEMO_DATA:true}
+  security:
+    # Set APP_DEMO_MODE=false in production: this disables demo seeding and
+    # rejects the shipped demo JWT secret.
+    demo-mode: ${APP_DEMO_MODE:true}
+    login-max-attempts: ${APP_LOGIN_MAX_ATTEMPTS:5}
+    login-window-minutes: ${APP_LOGIN_WINDOW_MINUTES:15}
+    login-lock-minutes: ${APP_LOGIN_LOCK_MINUTES:15}
+    public-requests-per-minute: ${APP_PUBLIC_RPM:60}
+    ai-requests-per-minute: ${APP_AI_RPM:10}
   jwt:
     secret: ${APP_JWT_SECRET:demo-only-change-this-jwt-secret-32-chars-minimum}
     ttl-minutes: ${APP_JWT_TTL_MINUTES:480}
+    issuer: ${APP_JWT_ISSUER:campus-guide}
+    audience: ${APP_JWT_AUDIENCE:campus-guide-admin}
+    cookie-name: ${APP_JWT_COOKIE_NAME:cg_admin_session}
+    cookie-secure: ${APP_COOKIE_SECURE:false}
+    cookie-same-site: ${APP_COOKIE_SAME_SITE:Strict}
   storage:
     upload-dir: ${APP_UPLOAD_DIR:./data/uploads}
     max-file-bytes: ${APP_MAX_FILE_BYTES:52428800}
@@ -82,3 +100,4 @@ app:
     speech-model: ${AI_TTS_MODEL:gpt-4o-mini-tts}
     speech-voice: ${AI_TTS_VOICE:alloy}
     timeout-seconds: ${AI_TIMEOUT_SECONDS:45}
+

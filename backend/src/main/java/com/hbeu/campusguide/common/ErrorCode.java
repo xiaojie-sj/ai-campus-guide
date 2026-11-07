@@ -11,6 +11,7 @@ public enum ErrorCode {
     FORBIDDEN(40300, "没有执行该操作的权限", HttpStatus.FORBIDDEN),
     NOT_FOUND(40400, "请求的资源不存在", HttpStatus.NOT_FOUND),
     CONFLICT(40900, "当前操作与已有数据冲突", HttpStatus.CONFLICT),
+    TOO_MANY_REQUESTS(42900, "操作过于频繁，请稍后再试", HttpStatus.TOO_MANY_REQUESTS),
     NO_EVIDENCE(42201, "没有找到可核验的校园资料", HttpStatus.UNPROCESSABLE_ENTITY),
     EXTERNAL_SERVICE(50200, "外部 AI 服务暂时不可用", HttpStatus.BAD_GATEWAY),
     INTERNAL_ERROR(50000, "系统内部错误", HttpStatus.INTERNAL_SERVER_ERROR);
@@ -37,3 +38,4 @@ public enum ErrorCode {
         return httpStatus;
     }
 }
+

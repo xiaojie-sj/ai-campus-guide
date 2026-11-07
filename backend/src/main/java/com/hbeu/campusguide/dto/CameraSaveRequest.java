@@ -2,10 +2,12 @@ package com.hbeu.campusguide.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 
 public record CameraSaveRequest(
-        @NotBlank String key,
-        @NotBlank String name,
+        @NotBlank @Pattern(regexp = "^[A-Za-z0-9._-]{1,80}$") String key,
+        @NotBlank @Size(max = 120) String name,
         Long pointId,
         @NotNull Double x,
         @NotNull Double y,
@@ -14,7 +16,7 @@ public record CameraSaveRequest(
         @NotNull Double targetY,
         @NotNull Double targetZ,
         Boolean publicVisible,
-        String status,
+        @Size(max = 40) String status,
         Integer sortOrder
 ) {
 }

@@ -20,16 +20,22 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(authInterceptor).addPathPatterns("/api/admin/**");
+        registry.addInterceptor(authInterceptor)
+                .addPathPatterns("/api/admin/**", "/api/auth/me", "/api/auth/logout");
     }
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
+        String[] origins = properties.cors() == null || properties.cors().allowedOrigins() == null
+                ? new String[0]
+                : properties.cors().allowedOrigins().toArray(String[]::new);
         registry.addMapping("/api/**")
-                .allowedOrigins(properties.cors().allowedOrigins().toArray(String[]::new))
+                .allowedOrigins(origins)
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                .allowedHeaders("Authorization", "Content-Type", "X-Trace-Id")
+                .allowedHeaders("Authorization", "Content-Type", "X-Trace-Id", "X-Requested-With")
                 .exposedHeaders("X-Trace-Id")
-                .allowCredentials(false);
+                .allowCredentials(true)
+                .maxAge(3600);
     }
 }
+

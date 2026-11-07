@@ -7,6 +7,7 @@ import com.hbeu.campusguide.common.ApiResponse;
 import com.hbeu.campusguide.config.OpenApiConfig;
 import com.hbeu.campusguide.common.BusinessException;
 import com.hbeu.campusguide.common.ErrorCode;
+import com.hbeu.campusguide.common.InputGuards;
 import com.hbeu.campusguide.config.AdminContext;
 import com.hbeu.campusguide.config.RequireRole;
 import com.hbeu.campusguide.domain.CameraPreset;
@@ -388,26 +389,26 @@ public class AdminContentController {
     }
 
     private void apply(CampusPoint point, PointSaveRequest request) {
-        point.setName(request.name());
-        point.setAliases(request.aliases());
-        point.setCategory(request.category());
-        point.setDescription(request.description());
+        point.setName(InputGuards.requiredText(request.name(), 120, "点位名称"));
+        point.setAliases(InputGuards.text(request.aliases(), 500, "别名"));
+        point.setCategory(InputGuards.requiredText(request.category(), 40, "分类"));
+        point.setDescription(InputGuards.requiredText(request.description(), 5000, "讲解内容"));
         point.setX(request.x());
         point.setZ(request.z());
         point.setBuildingHeight(request.buildingHeight() == null ? 4 : request.buildingHeight());
-        point.setColorHex(request.colorHex() == null ? "#7d9a8b" : request.colorHex());
-        point.setModelKey(request.modelKey());
+        point.setColorHex(InputGuards.colorHex(request.colorHex(), "#7d9a8b"));
+        point.setModelKey(InputGuards.safeKey(request.modelKey(), 80, "模型 Key"));
         point.setRoadNodeId(request.roadNodeId());
-        point.setStatus(request.status() == null ? "DRAFT" : request.status());
-        point.setVerificationStatus(request.verificationStatus() == null ? "PENDING" : request.verificationStatus());
-        point.setSourceTitle(request.sourceTitle());
-        point.setSourceUrl(request.sourceUrl());
+        point.setStatus(InputGuards.code(request.status(), "DRAFT", "状态"));
+        point.setVerificationStatus(InputGuards.code(request.verificationStatus(), "PENDING", "核验状态"));
+        point.setSourceTitle(InputGuards.text(request.sourceTitle(), 300, "来源名称"));
+        point.setSourceUrl(InputGuards.httpUrl(request.sourceUrl(), 500, "来源链接"));
         point.setSortOrder(request.sortOrder() == null ? 0 : request.sortOrder());
     }
 
     private void apply(CameraPreset camera, CameraSaveRequest request) {
-        camera.setPresetKey(request.key());
-        camera.setName(request.name());
+        camera.setPresetKey(InputGuards.safeKey(request.key(), 80, "机位 Key"));
+        camera.setName(InputGuards.requiredText(request.name(), 120, "机位名称"));
         camera.setPointId(request.pointId());
         camera.setX(request.x());
         camera.setY(request.y());
@@ -416,55 +417,58 @@ public class AdminContentController {
         camera.setTargetY(request.targetY());
         camera.setTargetZ(request.targetZ());
         camera.setPublicVisible(request.publicVisible() == null || request.publicVisible());
-        camera.setStatus(request.status() == null ? "PUBLISHED" : request.status());
+        camera.setStatus(InputGuards.code(request.status(), "PUBLISHED", "状态"));
         camera.setSortOrder(request.sortOrder() == null ? 0 : request.sortOrder());
     }
 
     private void apply(TourRoute route, TourSaveRequest request) {
-        route.setRouteKey(request.key());
-        route.setName(request.name());
-        route.setSummary(request.summary());
-        route.setAudience(request.audience());
+        route.setRouteKey(InputGuards.safeKey(request.key(), 80, "路线 Key"));
+        route.setName(InputGuards.requiredText(request.name(), 160, "路线名称"));
+        route.setSummary(InputGuards.text(request.summary(), 2000, "路线简介"));
+        route.setAudience(InputGuards.text(request.audience(), 160, "适用人群"));
         route.setEstimatedMinutes(request.estimatedMinutes() == null ? 10 : request.estimatedMinutes());
-        route.setStatus(request.status() == null ? "DRAFT" : request.status());
-        route.setVerificationStatus(request.verificationStatus() == null ? "PENDING" : request.verificationStatus());
+        route.setStatus(InputGuards.code(request.status(), "DRAFT", "状态"));
+        route.setVerificationStatus(InputGuards.code(request.verificationStatus(), "PENDING", "核验状态"));
         route.setEffectiveFrom(request.effectiveFrom());
         route.setEffectiveTo(request.effectiveTo());
         route.setSortOrder(request.sortOrder() == null ? 0 : request.sortOrder());
     }
 
     private void replaceStops(long routeId, List<TourStopInput> inputs) {
+        if (inputs == null || inputs.isEmpty() || inputs.size() > 100) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "路线站点数量不合法");
+        }
         stopMapper.delete(Wrappers.<TourStop>lambdaQuery().eq(TourStop::getRouteId, routeId));
         for (int i = 0; i < inputs.size(); i++) {
             TourStopInput input = inputs.get(i);
-            if (pointMapper.selectById(input.pointId()) == null) {
+            if (input.pointId() == null || pointMapper.selectById(input.pointId()) == null) {
                 throw new BusinessException(ErrorCode.BAD_REQUEST, "路线包含不存在的点位");
             }
             TourStop stop = new TourStop();
             stop.setRouteId(routeId);
             stop.setPointId(input.pointId());
             stop.setSortOrder(i + 1);
-            stop.setNarration(input.narration());
-            stop.setTransitionType(input.transitionType() == null ? "FLY" : input.transitionType());
+            stop.setNarration(InputGuards.text(input.narration(), 5000, "讲解词"));
+            stop.setTransitionType(InputGuards.code(input.transitionType(), "FLY", "转场类型"));
             stopMapper.insert(stop);
         }
     }
 
     private void apply(FaqItem item, FaqSaveRequest request) {
-        item.setQuestion(request.question());
-        item.setAliases(request.aliases());
-        item.setAnswer(request.answer());
-        item.setCategory(request.category());
-        item.setSourceTitle(request.sourceTitle());
-        item.setSourceUrl(request.sourceUrl());
+        item.setQuestion(InputGuards.requiredText(request.question(), 500, "问题"));
+        item.setAliases(InputGuards.text(request.aliases(), 1000, "别名"));
+        item.setAnswer(InputGuards.requiredText(request.answer(), 10000, "答案"));
+        item.setCategory(InputGuards.text(request.category(), 100, "分类"));
+        item.setSourceTitle(InputGuards.text(request.sourceTitle(), 500, "来源名称"));
+        item.setSourceUrl(InputGuards.httpUrl(request.sourceUrl(), 1000, "来源链接"));
         item.setPriority(request.priority() == null ? 10 : request.priority());
-        item.setStatus(request.status() == null ? "DRAFT" : request.status());
+        item.setStatus(InputGuards.code(request.status(), "DRAFT", "状态"));
         item.setEffectiveFrom(request.effectiveFrom());
         item.setEffectiveTo(request.effectiveTo());
         item.setUpdatedAt(LocalDateTime.now());
     }
-
     private void audit(String action, long id, String detail) {
         auditService.record(AdminContext.current().userId(), action, "CONTENT", String.valueOf(id), detail);
     }
 }
+

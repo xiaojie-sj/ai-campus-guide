@@ -17,5 +17,7 @@ public class AdminUser {
     private String displayName;
     private String role;
     private Boolean enabled;
+    private Long tokenVersion;
     private LocalDateTime createdAt;
 }
+

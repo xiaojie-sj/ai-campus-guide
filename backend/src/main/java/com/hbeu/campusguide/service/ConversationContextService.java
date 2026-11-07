@@ -32,7 +32,15 @@ public class ConversationContextService {
         if (sessionId == null || pointId == null) {
             return;
         }
+        if (states.size() > 50_000) {
+            purgeExpired();
+        }
         states.put(sessionId, new State(pointId, Instant.now()));
+    }
+
+    private void purgeExpired() {
+        Instant cutoff = Instant.now().minus(TTL);
+        states.entrySet().removeIf(entry -> entry.getValue().updatedAt().isBefore(cutoff));
     }
 
     public void clear(String sessionId) {
@@ -42,3 +50,4 @@ public class ConversationContextService {
     record State(Long referencePointId, Instant updatedAt) {
     }
 }
+

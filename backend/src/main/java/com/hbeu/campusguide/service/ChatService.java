@@ -100,9 +100,11 @@ public class ChatService {
         );
     }
 
-    public void feedback(long logId, String feedback) {
+    public void feedback(long logId, String sessionId, String feedback) {
         ChatLog log = chatLogMapper.selectById(logId);
-        if (log == null) {
+        // The session id is the capability for a public conversation. Matching
+        // it prevents one visitor from modifying another visitor's feedback.
+        if (log == null || sessionId == null || !log.getSessionId().equals(sessionId.trim())) {
             throw new BusinessException(com.hbeu.campusguide.common.ErrorCode.NOT_FOUND, "对话记录不存在");
         }
         if (!List.of("HELPFUL", "UNHELPFUL", "OUTDATED").contains(feedback)) {
@@ -227,3 +229,4 @@ public class ChatService {
     ) {
     }
 }
+

@@ -226,7 +226,7 @@ defineExpose({
 }
 
 .avatar-trigger:focus-visible {
-  outline: 2px solid #d9b465;
+  outline: 2px solid #00dcf6;
   outline-offset: -0.2rem;
 }
 
@@ -242,20 +242,20 @@ defineExpose({
   bottom: 0.5rem;
   width: 7.9rem;
   height: 2rem;
-  border: 1px solid rgb(236 193 105 / 54%);
+  border: 1px solid rgb(0 220 246 / 50%);
   box-shadow:
-    0 0 0 0.45rem rgb(94 205 188 / 4%),
-    0 0 2.2rem rgb(89 205 189 / 15%);
+    0 0 0 0.45rem rgb(0 220 246 / 4%),
+    0 0 2.2rem rgb(0 220 246 / 14%);
 }
 
 .avatar-halo {
   bottom: 4rem;
   width: 8.8rem;
   height: 8.8rem;
-  border: 1px solid rgb(103 220 203 / 16%);
+  border: 1px solid rgb(0 220 246 / 14%);
   background:
-    radial-gradient(circle, rgb(77 194 181 / 12%) 0 32%, transparent 66%),
-    conic-gradient(from 12deg, transparent, rgb(240 196 104 / 12%), transparent 42%);
+    radial-gradient(circle, rgb(0 220 246 / 12%) 0 32%, transparent 66%),
+    conic-gradient(from 12deg, transparent, rgb(0 220 246 / 12%), transparent 42%);
   animation: halo-turn 16s linear infinite;
 }
 
@@ -365,8 +365,8 @@ defineExpose({
   bottom: 1.5rem;
   width: 7.8rem;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgb(116 231 214 / 62%), transparent);
-  box-shadow: 0 0 12px rgb(115 220 205 / 50%);
+  background: linear-gradient(90deg, transparent, rgb(0 220 246 / 62%), transparent);
+  box-shadow: 0 0 12px rgb(0 220 246 / 50%);
   animation: scan 3.8s ease-in-out infinite;
 }
 
@@ -380,10 +380,10 @@ defineExpose({
   align-items: center;
   justify-content: space-between;
   gap: 0.55rem;
-  border: 1px solid rgb(225 190 111 / 43%);
+  border: 1px solid rgb(0 220 246 / 40%);
   padding: 0.35rem 0.5rem;
-  color: #e9d9b4;
-  background: rgb(5 27 29 / 88%);
+  color: #d6f4ff;
+  background: rgb(5 20 54 / 90%);
   box-shadow: 0 8px 28px rgb(0 12 14 / 35%);
   transform: translateX(-50%);
   backdrop-filter: blur(10px);
@@ -402,7 +402,7 @@ defineExpose({
   padding: 0.52rem 0.65rem 0.48rem;
   color: #edf7f8;
   background:
-    linear-gradient(135deg, rgb(19 54 73 / 94%), rgb(5 29 36 / 92%));
+    linear-gradient(135deg, rgb(12 39 78 / 94%), rgb(4 17 44 / 92%));
   box-shadow:
     0 12px 32px rgb(0 10 14 / 34%),
     inset 0 1px rgb(255 255 255 / 7%);
@@ -421,7 +421,7 @@ defineExpose({
   height: 0.62rem;
   border-top: 1px solid rgb(137 193 221 / 30%);
   border-right: 1px solid rgb(137 193 221 / 30%);
-  background: #0a2731;
+  background: #0a2144;
   content: '';
   transform: translateY(-50%) rotate(45deg);
 }
@@ -451,8 +451,8 @@ defineExpose({
   width: 0.36rem;
   height: 0.36rem;
   border-radius: 50%;
-  background: #86d5cf;
-  box-shadow: 0 0 0 0.22rem rgb(134 213 207 / 12%);
+  background: #6ff5ff;
+  box-shadow: 0 0 0 0.22rem rgb(0 220 246 / 12%);
 }
 
 .avatar-status span {
@@ -462,7 +462,7 @@ defineExpose({
 }
 
 .avatar-status strong {
-  color: #dbece2;
+  color: #dceeff;
   font-size: 0.58rem;
   font-weight: 500;
 }
@@ -473,7 +473,7 @@ defineExpose({
   height: 0.34rem;
   margin-right: 0.3rem;
   border-radius: 50%;
-  background: #74c69d;
+  background: #2dd4bf;
   content: '';
 }
 
@@ -486,18 +486,18 @@ defineExpose({
   justify-items: center;
   gap: 0.15rem;
   padding: 0.48rem;
-  border-top: 1px solid rgb(229 192 113 / 28%);
-  background: linear-gradient(90deg, transparent, rgb(5 27 29 / 74%), transparent);
+  border-top: 1px solid rgb(0 220 246 / 26%);
+  background: linear-gradient(90deg, transparent, rgb(5 20 54 / 76%), transparent);
 }
 
 .avatar-name strong {
-  color: #f0e5cd;
+  color: #e0f7ff;
   font: 500 0.75rem/1.2 var(--font-display);
   letter-spacing: 0.08em;
 }
 
 .avatar-name small {
-  color: rgb(212 202 178 / 48%);
+  color: rgb(150 185 215 / 52%);
   font: 0.42rem/1 var(--font-mono);
   letter-spacing: 0.1em;
 }
@@ -680,4 +680,55 @@ defineExpose({
     animation: none;
   }
 }
+
+/* Keep the companion legible without competing with the 3D scene */
+.avatar-status {
+  min-width: 11rem;
+  gap: 0.65rem;
+  border-color: rgb(53 215 255 / 34%);
+  border-radius: 0.75rem;
+  padding: 0.48rem 0.62rem;
+  background: rgb(4 18 40 / 92%);
+  box-shadow: 0 12px 32px rgb(0 4 16 / 34%), inset 0 1px 0 rgb(255 255 255 / 4%);
+}
+
+.avatar-status span {
+  color: #69e4f6;
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+}
+
+.avatar-status strong {
+  color: #e6f7ff;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.avatar-prompt {
+  min-width: 7.2rem;
+  border-color: rgb(138 169 214 / 26%);
+  border-radius: 0.75rem;
+  padding: 0.62rem 0.72rem 0.58rem;
+}
+
+.avatar-prompt > span:not(.prompt-signal) {
+  font-size: 0.76rem;
+}
+
+.avatar-prompt small {
+  color: rgb(171 202 227 / 78%);
+  font-size: 0.56rem;
+}
+
+@media (max-width: 760px) {
+  .avatar-status {
+    min-width: 9.5rem;
+    padding: 0.42rem 0.52rem;
+  }
+
+  .avatar-status span { font-size: 0.52rem; }
+  .avatar-status strong { font-size: 0.68rem; }
+  .avatar-prompt { display: none; }
+}
+
 </style>

@@ -70,11 +70,19 @@ def material(name, color, roughness=0.78, metallic=0.0, emission=None,
     mat.use_nodes = True
     mat.use_backface_culling = False
     nodes = mat.node_tree.nodes
-    bsdf = nodes.get("Principled BSDF")
+    links = mat.node_tree.links
+    # Never look nodes up by display name: Blender localizes default node names
+    # (for example "原理化 BSDF" in zh-CN). A name lookup then misses the
+    # default Principled BSDF, creates a second unconnected one, and the glTF
+    # exporter falls back to a plain white material for every mesh.
+    bsdf = next((node for node in nodes if node.type == "BSDF_PRINCIPLED"), None)
+    out = next((node for node in nodes if node.type == "OUTPUT_MATERIAL"), None)
     if bsdf is None:
         bsdf = nodes.new("ShaderNodeBsdfPrincipled")
-        out = nodes.get("Material Output") or nodes.new("ShaderNodeOutputMaterial")
-        mat.node_tree.links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
+    if out is None:
+        out = nodes.new("ShaderNodeOutputMaterial")
+    if not out.inputs["Surface"].links:
+        links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
     rgb = hx(color)
     bsdf.inputs["Base Color"].default_value = (*rgb, 1.0)
     bsdf.inputs["Roughness"].default_value = roughness
@@ -1198,91 +1206,83 @@ def build_cars():
 
 
 def make_world():
+    """World-space sky: blue gradient plus a drifting-looking cloud layer.
+
+    The previous implementation used a small dome that only covered the low
+    horizon; high camera rays hit the flat world colour and washed the render
+    out. A world shader covers every view direction and keeps the sky blue
+    behind the campus from any camera angle.
+    """
     world = bpy.data.worlds.new("CampusWorld")
     world.use_nodes = True
     nodes = world.node_tree.nodes
     links = world.node_tree.links
     for node in list(nodes):
         nodes.remove(node)
+
     out = nodes.new("ShaderNodeOutputWorld")
     bg = nodes.new("ShaderNodeBackground")
-    bg.inputs["Color"].default_value = (*hx("#BBD6E4"), 1)
-    bg.inputs["Strength"].default_value = 1.0
-    links.new(bg.outputs["Background"], out.inputs["Surface"])
-    bpy.context.scene.world = world
-    mb = MeshBuilder("RenderSky")
-    verts = []
-    seg = 48
-    ring = 8
-    for ri in range(ring + 1):
-        phi = math.pi * 0.5 * ri / ring
-        z = 18 + 62 * math.sin(phi)
-        r = 90 * math.cos(phi) + 8
-        for k in range(seg):
-            a = 2 * math.pi * k / seg
-            verts.append((r * math.cos(a), r * math.sin(a), z))
-    for i in range(ring):
-        for k in range(seg):
-            j = (k + 1) % seg
-            a = i * seg + k
-            b = i * seg + j
-            c = (i + 1) * seg + j
-            d = (i + 1) * seg + k
-            mb.quad(verts[a], verts[b], verts[c], verts[d], "M_Sky")
-    obj = mb.finish(COL_RENDER, {"campusRole": "renderOnly"})
-    if obj:
-        obj.visible_shadow = False
-
-
-def build_render_sky_material():
-    mat = bpy.data.materials.new("M_Sky")
-    mat.use_nodes = True
-    nodes = mat.node_tree.nodes
-    links = mat.node_tree.links
-    for n in list(nodes):
-        nodes.remove(n)
-    out = nodes.new("ShaderNodeOutputMaterial")
     tex = nodes.new("ShaderNodeTexCoord")
     sep = nodes.new("ShaderNodeSeparateXYZ")
     ramp = nodes.new("ShaderNodeValToRGB")
-    emit = nodes.new("ShaderNodeEmission")
+    noise = nodes.new("ShaderNodeTexNoise")
+    cloud_ramp = nodes.new("ShaderNodeValToRGB")
+    mix = nodes.new("ShaderNodeMixRGB")
+
     ramp.color_ramp.elements[0].position = 0.0
-    ramp.color_ramp.elements[0].color = (*hx("#F6E4C8"), 1)
-    ramp.color_ramp.elements[1].position = 0.65
-    ramp.color_ramp.elements[1].color = (*hx("#8FBAD6"), 1)
-    e = ramp.color_ramp.elements.new(0.30)
-    e.color = (*hx("#D9E7E8"), 1)
-    emit.inputs["Strength"].default_value = 1.0
+    ramp.color_ramp.elements[0].color = (*hx("#6BB3EB"), 1)
+    ramp.color_ramp.elements[1].position = 0.68
+    ramp.color_ramp.elements[1].color = (*hx("#246BBF"), 1)
+    mid = ramp.color_ramp.elements.new(0.26)
+    mid.color = (*hx("#4C99DE"), 1)
+
+    noise.inputs["Scale"].default_value = 3.8
+    noise.inputs["Detail"].default_value = 8.0
+    noise.inputs["Roughness"].default_value = 0.58
+    noise.inputs["Distortion"].default_value = 0.18
+
+    cloud_ramp.color_ramp.elements[0].position = 0.54
+    cloud_ramp.color_ramp.elements[0].color = (0.0, 0.0, 0.0, 1)
+    cloud_ramp.color_ramp.elements[1].position = 0.68
+    cloud_ramp.color_ramp.elements[1].color = (1.0, 1.0, 1.0, 1)
+
+    mix.blend_type = "MIX"
+    mix.inputs["Color2"].default_value = (1.0, 1.0, 1.0, 1)
+    bg.inputs["Strength"].default_value = 0.9
+
     links.new(tex.outputs["Generated"], sep.inputs["Vector"])
     links.new(sep.outputs["Z"], ramp.inputs["Fac"])
-    links.new(ramp.outputs["Color"], emit.inputs["Color"])
-    links.new(emit.outputs["Emission"], out.inputs["Surface"])
-    MATERIALS["M_Sky"] = mat
-    return mat
+    links.new(tex.outputs["Generated"], noise.inputs["Vector"])
+    links.new(noise.outputs["Fac"], cloud_ramp.inputs["Fac"])
+    links.new(cloud_ramp.outputs["Color"], mix.inputs["Fac"])
+    links.new(ramp.outputs["Color"], mix.inputs["Color1"])
+    links.new(mix.outputs["Color"], bg.inputs["Color"])
+    links.new(bg.outputs["Background"], out.inputs["Surface"])
+    bpy.context.scene.world = world
 
 
 def setup_lights():
     sun_data = bpy.data.lights.new("Sun", type="SUN")
-    sun_data.energy = 3.2
+    sun_data.energy = 3.8
     sun_data.angle = math.radians(3.0)
-    sun_data.color = hx("#FFE9C9")
+    sun_data.color = hx("#FFF4E0")
     sun = bpy.data.objects.new("Sun", sun_data)
     COL_RENDER.objects.link(sun)
     sun.rotation_euler = Euler((math.radians(50), math.radians(0), math.radians(-38)), "XYZ")
 
     fill_data = bpy.data.lights.new("Fill", type="AREA")
-    fill_data.energy = 1800
+    fill_data.energy = 2600
     fill_data.size = 26
-    fill_data.color = hx("#CFE7F0")
+    fill_data.color = hx("#D6ECFF")
     fill = bpy.data.objects.new("Fill", fill_data)
     COL_RENDER.objects.link(fill)
     fill.location = (18, -20, 22)
     fill.rotation_euler = Euler((math.radians(55), 0, math.radians(40)), "XYZ")
 
     rim_data = bpy.data.lights.new("Rim", type="AREA")
-    rim_data.energy = 1200
+    rim_data.energy = 1500
     rim_data.size = 18
-    rim_data.color = hx("#FFD9A8")
+    rim_data.color = hx("#FFE9C6")
     rim = bpy.data.objects.new("Rim", rim_data)
     COL_RENDER.objects.link(rim)
     rim.location = (-24, 22, 16)
@@ -1349,11 +1349,14 @@ def setup_render():
         scene.eevee.use_shadows = True
     except Exception:
         pass
+    # Standard keeps the blue sky saturated instead of AgX washing it to
+    # near-white at this daylight intensity.
+    scene.view_settings.view_transform = "Standard"
     try:
-        scene.view_settings.look = "AgX - Medium High Contrast"
+        scene.view_settings.look = "None"
     except Exception:
         pass
-    scene.view_settings.exposure = 0.35
+    scene.view_settings.exposure = -0.4
 
 
 def render_views():
@@ -1371,6 +1374,40 @@ def render_views():
         t0 = time.time()
         bpy.ops.render.render(write_still=True)
         print(f"[render] {name} in {time.time() - t0:.1f}s")
+
+
+def verify_glb_materials(path):
+    """Fail fast if the glTF exporter silently replaced materials with white.
+
+    This happened when Blender ran with a localized UI: the material helper
+    looked up nodes by their English display name, missed the default
+    Principled BSDF and left the connected node at the glTF default 0.8 grey.
+    The web viewer then showed a completely white "clay" campus.
+    """
+    import struct
+
+    with open(path, "rb") as handle:
+        magic, version, _length = struct.unpack("<III", handle.read(12))
+        if magic != 0x46546C67 or version != 2:
+            raise RuntimeError(f"Not a glTF 2.0 GLB: {path}")
+        chunk_length, _chunk_type = struct.unpack("<II", handle.read(8))
+        document = json.loads(handle.read(chunk_length).decode("utf-8"))
+
+    materials = document.get("materials", [])
+    if not materials:
+        raise RuntimeError("GLB contains no materials")
+    colours = {
+        tuple(round(float(channel), 3) for channel in material.get("pbrMetallicRoughness", {}).get(
+            "baseColorFactor", [0.8, 0.8, 0.8, 1.0]
+        ))
+        for material in materials
+    }
+    if len(colours) < min(6, len(materials)):
+        raise RuntimeError(
+            f"GLB materials look like the white fallback: {len(colours)} distinct "
+            f"base colours across {len(materials)} materials"
+        )
+    print(f"[verify] {len(materials)} materials, {len(colours)} distinct base colours")
 
 
 def export_glb():
@@ -1391,6 +1428,7 @@ def export_glb():
         export_materials="EXPORT",
     )
     print(f"[export] {GLB_PATH} ({os.path.getsize(GLB_PATH) / 1024 / 1024:.2f} MB)")
+    verify_glb_materials(GLB_PATH)
 
 
 def save_blend():
@@ -1403,7 +1441,6 @@ def main():
     clear_scene()
     setup_collections()
     build_materials()
-    build_render_sky_material()
     build_ground()
     build_plazas()
     build_round_plazas()

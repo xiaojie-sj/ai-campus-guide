@@ -77,3 +77,9 @@ submission/.ppt-build/
 # Submission deliverables for the course teacher: local-only, never in repo
 # ---------------------------------------------------------------------------
 submission/
+
+# ---------------------------------------------------------------------------
+# Local course submission packages (zip + unpacked folder), never in repo
+# ---------------------------------------------------------------------------
+/*.zip
+/24级计科1班*/

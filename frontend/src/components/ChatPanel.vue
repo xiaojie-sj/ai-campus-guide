@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue'
 import type { MediaRef, SourceRef } from '../types'
+import AppIcon from './AppIcon.vue'
 
 export interface ChatMessage {
   id: string
@@ -53,7 +54,7 @@ defineExpose({
 </script>
 
 <template>
-  <section class="chat-console" aria-label="校园空间问答">
+  <section class="chat-console" aria-label="校园空间问答" :aria-busy="props.busy">
     <header class="console-head">
       <div>
         <span class="section-kicker">GUIDE CHANNEL</span>
@@ -69,7 +70,7 @@ defineExpose({
           aria-label="收起校园知识库对话"
           @click="emit('close')"
         >
-          ×
+          <AppIcon name="close" :size="17" />
         </button>
       </div>
     </header>
@@ -151,7 +152,8 @@ defineExpose({
         />
       </label>
       <button class="send-button" type="submit" :disabled="props.busy || !input.trim()">
-        发送
+        <span>发送</span>
+        <AppIcon name="arrow" :size="17" />
       </button>
     </form>
   </section>
@@ -162,8 +164,8 @@ defineExpose({
   display: flex;
   min-height: 0;
   flex-direction: column;
-  border: 1px solid rgb(226 213 178 / 22%);
-  background: rgb(5 25 27 / 88%);
+  border: 1px solid rgb(120 170 215 / 20%);
+  background: rgb(5 20 54 / 90%);
   box-shadow: 0 30px 80px rgb(0 0 0 / 32%);
   backdrop-filter: blur(22px);
 }
@@ -174,7 +176,7 @@ defineExpose({
   justify-content: space-between;
   gap: 1rem;
   padding: 1rem 1.15rem 0.85rem;
-  border-bottom: 1px solid rgb(226 213 178 / 14%);
+  border-bottom: 1px solid rgb(120 170 215 / 14%);
 }
 
 .section-kicker {
@@ -208,7 +210,7 @@ h2 {
   width: 1.75rem;
   height: 1.75rem;
   place-items: center;
-  border: 1px solid rgb(226 213 178 / 18%);
+  border: 1px solid rgb(120 170 215 / 16%);
   color: var(--muted);
   background: rgb(255 255 255 / 2%);
   font-size: 1rem;
@@ -218,7 +220,7 @@ h2 {
 
 .console-close:hover {
   color: var(--ivory);
-  border-color: rgb(226 213 178 / 45%);
+  border-color: rgb(0 220 246 / 42%);
 }
 
 .console-state.live::before {
@@ -227,7 +229,7 @@ h2 {
   height: 0.42rem;
   margin-right: 0.35rem;
   border-radius: 50%;
-  background: #74c69d;
+  background: #2dd4bf;
   content: '';
 }
 
@@ -285,7 +287,7 @@ h2 {
 
 .message p {
   margin: 0;
-  color: #e8e3d3;
+  color: #dceeff;
   font-size: 0.83rem;
   line-height: 1.75;
   white-space: pre-wrap;
@@ -293,8 +295,8 @@ h2 {
 
 .message.visitor p {
   padding: 0.72rem 0.85rem;
-  border: 1px solid rgb(226 213 178 / 16%);
-  background: rgb(217 181 101 / 11%);
+  border: 1px solid rgb(120 170 215 / 15%);
+  background: rgb(0 220 246 / 10%);
 }
 
 .message-media {
@@ -313,7 +315,7 @@ h2 {
 .message-media figure {
   margin: 0;
   overflow: hidden;
-  border: 1px solid rgb(226 213 178 / 18%);
+  border: 1px solid rgb(120 170 215 / 16%);
   background: rgb(255 255 255 / 3%);
 }
 
@@ -372,7 +374,7 @@ h2 {
 }
 
 .source-stack a {
-  color: #d8c58e;
+  color: #7fe7f5;
 }
 
 .thinking-line {
@@ -402,7 +404,7 @@ h2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.3rem 0.65rem;
   padding: 0.6rem 1rem;
-  border-top: 1px solid rgb(226 213 178 / 10%);
+  border-top: 1px solid rgb(120 170 215 / 10%);
 }
 
 .suggestion-label {
@@ -414,7 +416,7 @@ h2 {
 
 .suggestion-strip button {
   border: 0;
-  border-bottom: 1px solid rgb(226 213 178 / 28%);
+  border-bottom: 1px solid rgb(120 170 215 / 26%);
   padding: 0.22rem 0;
   color: var(--muted);
   background: transparent;
@@ -437,7 +439,7 @@ h2 {
 }
 
 .input-wrap {
-  border-bottom: 1px solid rgb(226 213 178 / 32%);
+  border-bottom: 1px solid rgb(120 170 215 / 30%);
   background: rgb(255 255 255 / 3%);
 }
 
@@ -456,11 +458,11 @@ textarea {
 }
 
 textarea::placeholder {
-  color: rgb(222 217 199 / 48%);
+  color: rgb(160 195 225 / 52%);
 }
 
 .send-button {
-  border: 1px solid rgb(226 213 178 / 25%);
+  border: 1px solid rgb(120 170 215 / 24%);
   color: var(--ivory);
   background: transparent;
   cursor: pointer;
@@ -470,7 +472,7 @@ textarea::placeholder {
   min-width: 4rem;
   height: 2.75rem;
   padding: 0 0.85rem;
-  color: #092326;
+  color: #04101e;
   background: var(--amber);
   font-weight: 700;
 }
@@ -492,4 +494,159 @@ button:disabled {
     opacity: 1;
   }
 }
+
+/* Cohesive conversation surface */
+.chat-console {
+  border-color: rgb(138 169 214 / 18%);
+  border-radius: 1.25rem;
+  background: linear-gradient(160deg, rgb(8 27 54 / 94%), rgb(2 11 25 / 96%));
+  box-shadow: 0 30px 90px rgb(0 0 0 / 38%), inset 0 1px 0 rgb(255 255 255 / 3%);
+  backdrop-filter: blur(24px);
+}
+
+.console-head {
+  align-items: center;
+  padding: 1.05rem 1.2rem 0.95rem;
+  border-bottom-color: rgb(138 169 214 / 13%);
+  background: linear-gradient(180deg, rgb(53 215 255 / 4%), transparent);
+}
+
+.section-kicker {
+  color: #68dff2;
+  font-size: 0.62rem;
+  letter-spacing: 0.13em;
+}
+
+h2 {
+  font-size: 1.18rem;
+}
+
+.console-state {
+  color: #8ca2c0;
+  font-size: 0.7rem;
+}
+
+.console-close {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-color: rgb(138 169 214 / 16%);
+  border-radius: 0.62rem;
+  color: #91a6c4;
+}
+
+.console-close:hover {
+  color: #e8f8ff;
+  border-color: rgb(53 215 255 / 34%);
+  background: rgb(53 215 255 / 7%);
+}
+
+.message-list {
+  padding: 1rem 1.15rem;
+}
+
+.message {
+  max-width: 88%;
+  margin-bottom: 1.15rem;
+}
+
+.message-meta {
+  margin-bottom: 0.38rem;
+  color: #8298b8;
+  font-size: 0.68rem;
+}
+
+.message p {
+  color: #e3eeff;
+  font-size: 0.89rem;
+  line-height: 1.78;
+}
+
+.message.visitor p {
+  padding: 0.78rem 0.95rem;
+  border-color: rgb(53 215 255 / 18%);
+  border-radius: 0.95rem 0.95rem 0.25rem 0.95rem;
+  background: linear-gradient(135deg, rgb(53 215 255 / 12%), rgb(92 124 250 / 8%));
+}
+
+.message.guide p {
+  padding: 0.12rem 0;
+}
+
+.message-media figure {
+  border-color: rgb(138 169 214 / 17%);
+  border-radius: 0.8rem;
+}
+
+.source-stack summary {
+  min-height: 2.3rem;
+  border-radius: 0.6rem;
+}
+
+.suggestion-strip {
+  gap: 0.45rem;
+  padding: 0.7rem 1.05rem;
+  border-top-color: rgb(138 169 214 / 11%);
+}
+
+.suggestion-label {
+  color: #7891b1;
+  font-size: 0.66rem;
+}
+
+.suggestion-strip button {
+  min-height: 2.75rem;
+  border-color: rgb(138 169 214 / 16%);
+  border-radius: 999px;
+  padding: 0.4rem 0.7rem;
+  color: #b2c3dc;
+  background: rgb(138 169 214 / 5%);
+  font-size: 0.7rem;
+}
+
+.suggestion-strip button:hover:not(:disabled) {
+  border-color: rgb(53 215 255 / 30%);
+  color: #e4fbff;
+  background: rgb(53 215 255 / 8%);
+}
+
+.input-row {
+  align-items: end;
+  gap: 0.55rem;
+  padding: 0.85rem 1.05rem 1rem;
+  border-top-color: rgb(138 169 214 / 12%);
+}
+
+.input-wrap {
+  border-color: rgb(138 169 214 / 17%);
+  border-radius: 0.8rem;
+  background: rgb(2 10 24 / 70%);
+}
+
+.input-wrap:focus-within {
+  border-color: rgb(53 215 255 / 50%);
+  box-shadow: 0 0 0 3px rgb(53 215 255 / 7%);
+}
+
+textarea {
+  min-height: 2.8rem;
+  padding: 0.72rem 0.8rem;
+  color: #e8f0ff;
+  font-size: 0.88rem;
+}
+
+.send-button {
+  display: inline-flex;
+  min-width: 5.3rem;
+  min-height: 2.8rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border-radius: 0.8rem;
+  font-size: 0.8rem;
+}
+
+.thinking-line span {
+  background: #56e4f7;
+}
+
 </style>

@@ -4,6 +4,7 @@ import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -37,9 +38,11 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(ErrorCode.BAD_REQUEST, detail.isBlank() ? "请求参数不正确" : detail));
     }
 
-    @ExceptionHandler({ConstraintViolationException.class, MissingServletRequestParameterException.class})
+    @ExceptionHandler({ConstraintViolationException.class, MissingServletRequestParameterException.class,
+            HttpMessageNotReadableException.class})
     public ResponseEntity<ApiResponse<Void>> handleConstraint(Exception exception) {
-        return ResponseEntity.badRequest().body(ApiResponse.error(ErrorCode.BAD_REQUEST, exception.getMessage()));
+        log.debug("Rejected malformed request: {}", exception.getClass().getSimpleName());
+        return ResponseEntity.badRequest().body(ApiResponse.error(ErrorCode.BAD_REQUEST, "请求参数不正确"));
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
@@ -61,3 +64,4 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(ErrorCode.INTERNAL_ERROR, "系统暂时无法完成请求，请稍后重试"));
     }
 }
+

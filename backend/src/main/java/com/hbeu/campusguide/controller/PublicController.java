@@ -79,7 +79,7 @@ public class PublicController {
 
     @PostMapping("/feedback")
     public ApiResponse<Void> feedback(@Valid @RequestBody FeedbackRequest request) {
-        chatService.feedback(request.chatLogId(), request.feedback());
+        chatService.feedback(request.chatLogId(), request.sessionId(), request.feedback());
         return ApiResponse.ok("感谢反馈", null);
     }
 
@@ -88,6 +88,9 @@ public class PublicController {
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "durationSeconds", defaultValue = "0") int durationSeconds
     ) {
+        if (file.isEmpty() || durationSeconds < 0) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "录音文件或时长不合法");
+        }
         if (durationSeconds > properties.speech().maxSeconds()) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "录音时长超过限制");
         }
@@ -96,7 +99,7 @@ public class PublicController {
         }
         try {
             return ApiResponse.ok(Map.of(
-                    "text", aiGateway.transcribe(file.getBytes(), file.getOriginalFilename()),
+                    "text", aiGateway.transcribe(file.getBytes(), safeAudioFilename(file.getOriginalFilename())),
                     "provider", "remote"
             ));
         } catch (BusinessException exception) {
@@ -106,6 +109,12 @@ public class PublicController {
         }
     }
 
+    private String safeAudioFilename(String original) {
+        if (original == null || !original.matches("[A-Za-z0-9._-]{1,80}")) {
+            return "speech.webm";
+        }
+        return original;
+    }
     @PostMapping(value = "/tts", produces = "audio/mpeg")
     public ResponseEntity<byte[]> synthesize(@Valid @RequestBody TtsRequest request) {
         byte[] audio = aiGateway.synthesize(request.text(), request.speed() == null ? 1.0 : request.speed());
@@ -115,3 +124,5 @@ public class PublicController {
                 .body(audio);
     }
 }
+
+

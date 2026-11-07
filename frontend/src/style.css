@@ -1,20 +1,51 @@
 :root {
-  --ink: #071d20;
-  --forest: #0e302e;
-  --moss: #688273;
-  --ivory: #f1ead9;
-  --paper: #eae5d8;
-  --amber: #d9b465;
-  --muted: #8d9a91;
-  --font-display: "STSong", "Songti SC", "SimSun", serif;
-  --font-body: "Microsoft YaHei", "PingFang SC", sans-serif;
+  color-scheme: dark;
+
+  /* Brand + surface tokens */
+  --ink: #020817;
+  --forest: #061226;
+  --moss: #5c7cfa;
+  --ivory: #f3f7ff;
+  --paper: #0a1d37;
+  --amber: #35d7ff;
+  --muted: #8295b4;
+
+  --bg-canvas: #020817;
+  --bg-elevated: #07162c;
+  --surface-1: rgb(8 24 47 / 88%);
+  --surface-2: rgb(10 31 59 / 88%);
+  --surface-3: rgb(13 39 71 / 72%);
+  --line-soft: rgb(138 169 214 / 13%);
+  --line-strong: rgb(74 205 255 / 32%);
+  --text-1: #f3f7ff;
+  --text-2: #c4d2e8;
+  --text-3: #8295b4;
+  --primary: #35d7ff;
+  --primary-strong: #00dcf6;
+  --secondary: #5c7cfa;
+  --success: #34d399;
+  --warning: #ffb454;
+  --danger: #ff6b8a;
+
+  --radius-sm: 0.625rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1.25rem;
+  --shadow-panel: 0 22px 64px rgb(0 2 12 / 34%);
+  --shadow-glow: 0 0 34px rgb(53 215 255 / 16%);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --font-display: "Bahnschrift", "DIN Alternate", "HarmonyOS Sans SC", "MiSans", "Microsoft YaHei", sans-serif;
+  --font-body: "HarmonyOS Sans SC", "MiSans", "PingFang SC", "Microsoft YaHei", sans-serif;
   --font-mono: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
-  color: var(--ivory);
-  background: var(--ink);
+
+  color: var(--text-1);
+  background: var(--bg-canvas);
   font-family: var(--font-body);
+  font-size: 16px;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 * {
@@ -31,6 +62,13 @@ body,
 
 body {
   overflow-x: hidden;
+  color: var(--text-1);
+  background:
+    radial-gradient(70rem 42rem at 8% -12%, rgb(53 215 255 / 8%), transparent 60%),
+    radial-gradient(70rem 48rem at 100% 0%, rgb(92 124 250 / 10%), transparent 58%),
+    var(--bg-canvas);
+  font-size: 15px;
+  line-height: 1.6;
 }
 
 button,
@@ -40,30 +78,70 @@ select {
   font: inherit;
 }
 
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
 button {
   transition:
-    color 160ms ease,
-    border-color 160ms ease,
-    background-color 160ms ease,
-    opacity 160ms ease;
+    color 180ms var(--ease-out),
+    border-color 180ms var(--ease-out),
+    background-color 180ms var(--ease-out),
+    box-shadow 180ms var(--ease-out),
+    opacity 180ms var(--ease-out),
+    transform 180ms var(--ease-out);
+}
+
+button:not(:disabled),
+[role='button'] {
+  cursor: pointer;
 }
 
 a {
   color: inherit;
 }
 
+img,
+svg {
+  max-width: 100%;
+}
+
 ::selection {
-  color: #081e20;
-  background: var(--amber);
+  color: #03101f;
+  background: #83f1ff;
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
+:where(input, textarea, select)::placeholder {
+  color: #607492;
+  opacity: 1;
+}
+
+:where(input, textarea, select):disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 ::-webkit-scrollbar {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgb(217 181 101 / 32%);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgb(53 215 255 / 30%);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(53 215 255 / 50%);
+  background-clip: content-box;
 }
 
 ::-webkit-scrollbar-track {
@@ -77,4 +155,15 @@ a {
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

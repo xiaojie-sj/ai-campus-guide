@@ -1,19 +1,21 @@
 package com.hbeu.campusguide.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
 
 public record FaqSaveRequest(
-        @NotBlank String question,
-        String aliases,
-        @NotBlank String answer,
-        String category,
-        String sourceTitle,
-        String sourceUrl,
+        @NotBlank @Size(max = 500) String question,
+        @Size(max = 1000) String aliases,
+        @NotBlank @Size(max = 10000) String answer,
+        @Size(max = 100) String category,
+        @Size(max = 500) String sourceTitle,
+        @Size(max = 1000) String sourceUrl,
         Integer priority,
-        String status,
+        @Size(max = 40) String status,
         LocalDate effectiveFrom,
         LocalDate effectiveTo
 ) {
 }
+

@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
@@ -100,7 +100,7 @@
     scene.add(ground)
 
     const loader = new GLTFLoader()
-    loader.load('/models/campus-buildings.glb', (gltf) => {
+    loader.load('/models/campus-buildings.glb?v=20261107b', (gltf) => {
       const root = gltf.scene
       root.traverse((o) => {
         if (o.isMesh) {

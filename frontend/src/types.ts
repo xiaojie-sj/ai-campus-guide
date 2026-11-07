@@ -268,9 +268,54 @@ export interface PageResult<T> {
 }
 
 export interface AdminUser {
-  token: string
   userId: number
   username: string
   displayName: string
   role: string
 }
+
+export interface NamedCount {
+  name: string
+  count: number
+}
+
+export interface DashboardResponse {
+  totalConversations: number
+  todayConversations: number
+  unanswerableCount: number
+  activeSessions: number
+  averageLatencyMs: number
+  p95LatencyMs: number
+  intentCounts: Record<string, number>
+  answerStatusCounts: Record<string, number>
+  feedbackCounts: Record<string, number>
+  popularPoints: NamedCount[]
+  frequentQuestions: NamedCount[]
+  dailyTrend: Array<{ date: string; total: number; unanswerable: number }>
+  hourlyActivity: NamedCount[]
+  pointCategoryCounts: Record<string, number>
+  knowledgeStatusCounts: Record<string, number>
+  parseStatusCounts: Record<string, number>
+  tableStats: Array<{ table: string; label: string; rows: number }>
+  recentAudits: Array<{ action: string; targetType: string; detail: string; createdAt: string }>
+  pointMarkers: Array<{ id: number; name: string; category: string; x: number; z: number; height: number; status: string; colorHex?: string }>
+  roadNodes: Array<{ id: number; x: number; z: number }>
+  roadEdges: Array<{ fromNodeId: number; toNodeId: number }>
+  assets: {
+    points: number
+    roadNodes: number
+    roadEdges: number
+    cameras: number
+    tours: number
+    tourStops: number
+    faqs: number
+    documents: number
+    chunks: number
+    media: number
+    admins: number
+    configs: number
+    audits: number
+  }
+}
+
+

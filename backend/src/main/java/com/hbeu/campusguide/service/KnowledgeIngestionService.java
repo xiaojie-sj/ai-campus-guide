@@ -12,12 +12,14 @@ import com.hbeu.campusguide.mapper.KnowledgeDocumentMapper;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import com.hbeu.campusguide.common.InputGuards;
+import com.hbeu.campusguide.common.FileSignatureValidator;
+import java.nio.file.StandardOpenOption;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -78,12 +80,21 @@ public class KnowledgeIngestionService {
         if (file.getSize() > properties.storage().maxFileBytes()) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "文档超过允许的大小上限");
         }
-        String original = file.getOriginalFilename() == null ? "document" : file.getOriginalFilename();
+        String original = InputGuards.requiredText(
+                file.getOriginalFilename() == null ? "document" : file.getOriginalFilename(),
+                300, "原始文件名");
         String extension = extension(original);
         if (!ALLOWED.contains(extension)) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "仅支持 PDF、DOC、DOCX 和 TXT 文档");
         }
+        String safeTitle = InputGuards.text(title, 300, "文档标题");
+        String safeSourceTitle = InputGuards.text(sourceTitle, 500, "来源名称");
+        String safeSourceUrl = InputGuards.httpUrl(sourceUrl, 1000, "来源链接");
+        String safeEffectiveYear = InputGuards.text(effectiveYear, 20, "有效年份");
+        String safeCategory = InputGuards.text(category, 100, "分类");
         try {
+            byte[] bytes = file.getBytes();
+            FileSignatureValidator.validate(extension, bytes);
             Path directory = Path.of(properties.storage().uploadDir()).toAbsolutePath().normalize();
             Files.createDirectories(directory);
             String storedName = UUID.randomUUID() + "." + extension;
@@ -91,25 +102,23 @@ public class KnowledgeIngestionService {
             if (!target.startsWith(directory)) {
                 throw new BusinessException(ErrorCode.BAD_REQUEST, "文件名不安全");
             }
-            try (InputStream input = file.getInputStream()) {
-                Files.copy(input, target, StandardCopyOption.REPLACE_EXISTING);
-            }
+            Files.write(target, bytes, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
 
             KnowledgeDocument document = new KnowledgeDocument();
-            document.setTitle(title == null || title.isBlank() ? original : title.trim());
+            document.setTitle(safeTitle == null || safeTitle.isBlank() ? original : safeTitle);
             document.setOriginalFilename(original);
             document.setStoragePath(target.toString());
-            document.setSourceTitle(sourceTitle);
-            document.setSourceUrl(sourceUrl);
-            document.setEffectiveYear(effectiveYear);
+            document.setSourceTitle(safeSourceTitle);
+            document.setSourceUrl(safeSourceUrl);
+            document.setEffectiveYear(safeEffectiveYear);
             document.setEffectiveFrom(effectiveFrom);
             document.setEffectiveTo(effectiveTo);
-            document.setCategory(category == null || category.isBlank() ? "校园资料" : category);
+            document.setCategory(safeCategory == null || safeCategory.isBlank() ? "校园资料" : safeCategory);
             document.setStatus("DRAFT");
             document.setParseStatus("QUEUED");
             document.setChunkCount(0);
             document.setReviewer(AdminContext.current().displayName());
-            document.setChecksum(sha256(file.getBytes()));
+            document.setChecksum(sha256(bytes));
             document.setCreatedAt(LocalDateTime.now());
             document.setUpdatedAt(LocalDateTime.now());
             documentMapper.insert(document);
@@ -123,7 +132,6 @@ public class KnowledgeIngestionService {
             throw new BusinessException(ErrorCode.INTERNAL_ERROR, "文档保存失败");
         }
     }
-
     public KnowledgeDocumentView publish(long id, boolean publish) {
         KnowledgeDocument document = require(id);
         if (publish && (!"READY".equals(document.getParseStatus()) || document.getChunkCount() == 0)) {
@@ -222,3 +230,5 @@ public class KnowledgeIngestionService {
         return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
     }
 }
+
+

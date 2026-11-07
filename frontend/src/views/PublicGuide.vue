@@ -4,6 +4,7 @@ import { publicApi, ApiError } from '../api/client'
 import AvatarCompanion from '../components/AvatarCompanion.vue'
 import CampusScene from '../components/CampusScene.vue'
 import ChatPanel, { type ChatMessage } from '../components/ChatPanel.vue'
+import AppIcon from '../components/AppIcon.vue'
 import type {
   BootstrapResponse,
   CameraView,
@@ -33,8 +34,9 @@ const scene = ref<SceneHandle>()
 const avatar = ref<AvatarHandle>()
 const chatPanel = ref<ChatPanelHandle>()
 const data = ref<BootstrapResponse>()
-const loading = ref(true)
 const loadError = ref('')
+const sceneReady = ref(false)
+const loading = computed(() => (!data.value && !loadError.value) || (!!data.value && !sceneReady.value))
 const busy = ref(false)
 const chatOpen = ref(false)
 const sessionId = ref<string>(crypto.randomUUID())
@@ -44,11 +46,38 @@ const activeStop = ref(0)
 const tourPaused = ref(false)
 const showCameras = ref(false)
 const showPoints = ref(true)
-const showTours = ref(!window.matchMedia('(max-width: 760px)').matches)
+// Short laptop viewports start with the route rail collapsed so the 3D scene,
+// the route tab and the digital-human companion all stay usable.
+const showTours = ref(!window.matchMedia('(max-width: 760px)').matches && window.innerHeight > 980)
 const latestChatId = ref<number>()
 const messages = ref<ChatMessage[]>([])
 let resumeTourAfterAnswer = false
 let tourTimer: number | undefined
+
+const CATEGORY_LABELS: Record<string, string> = {
+  GATE: '校门',
+  LIBRARY: '图书馆',
+  TEACHING: '教学楼',
+  LAB: '实验楼',
+  DORM: '宿舍',
+  CANTEEN: '食堂',
+  SPORTS: '运动场',
+  ADMIN: '行政楼',
+  SERVICE: '服务设施',
+  PLAZA: '广场',
+  OTHER: '其他',
+}
+
+function categoryLabel(category: string) {
+  return CATEGORY_LABELS[category] ?? category
+}
+
+const modeLabel = computed(() => {
+  const mode = data.value?.config.mode
+  if (mode === 'DEMO') return '演示数据'
+  if (mode === 'LIVE') return '实时数据'
+  return mode ? `${mode} 数据` : '数据连接中'
+})
 
 const suggestions = [
   '学校是什么类型的学校？',
@@ -71,10 +100,12 @@ onMounted(async () => {
     messages.value = [defaultMessage.value]
   } catch (error) {
     loadError.value = error instanceof Error ? error.message : '校园场景加载失败'
-  } finally {
-    loading.value = false
   }
 })
+
+function onSceneModelReady() {
+  sceneReady.value = true
+}
 
 function onSceneReady() {
   nextTick(() => scene.value?.resetCamera())
@@ -82,6 +113,8 @@ function onSceneReady() {
 
 async function openChat() {
   chatOpen.value = true
+  // Compact screens cannot host the tall route rail and the chat console at once.
+  if (isCompactLayout()) showTours.value = false
   await nextTick()
   chatPanel.value?.focusInput()
 }
@@ -190,6 +223,7 @@ function toggleTours() {
   showTours.value = !showTours.value
   if (showTours.value && isCompactLayout()) {
     showPoints.value = false
+    chatOpen.value = false
   }
 }
 
@@ -273,7 +307,7 @@ function clearTourTimer() {
 async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
   if (!latestChatId.value) return
   try {
-    await publicApi.feedback(latestChatId.value, feedback)
+    await publicApi.feedback(latestChatId.value, feedback, sessionId.value)
     messages.value.push({
       id: crypto.randomUUID(),
       role: 'guide',
@@ -287,7 +321,7 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
 </script>
 
 <template>
-  <main class="guide-shell">
+  <main class="guide-shell" :class="{ 'tours-open': showTours }">
     <CampusScene
       v-if="data"
       ref="scene"
@@ -298,6 +332,7 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
       :cameras="data.cameras"
       :config="data.config"
       @point-selected="selectPoint"
+      @model-ready="onSceneModelReady"
       @ready="onSceneReady"
     />
 
@@ -319,9 +354,9 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
 
     <template v-if="data">
       <header class="top-rail">
-        <a class="brand" href="/" aria-label="湖北工程学院新技术学院校园导览首页">
-          <span class="brand-mark">HBEUTC</span>
-          <span class="brand-title">新技术学院 · 数字导览</span>
+        <a class="brand" href="/" title="新技术学院校园数字导览 · 返回首页">
+          <span class="brand-mark" aria-hidden="true"><AppIcon name="cube" :size="18" /></span>
+          <span class="brand-copy"><strong>新技术学院</strong><small>校园数字导览</small></span>
         </a>
         <div class="motto">
           <span>明德明志</span>
@@ -330,10 +365,10 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
         </div>
         <div class="top-status">
           <span class="status-dot" />
-          <span>{{ data.config.mode }} DATA</span>
+          <span>{{ modeLabel }}</span>
           <a class="admin-entry" href="/admin/login" aria-label="进入后台管理端">
             <span>管理端</span>
-            <b>↗</b>
+            <AppIcon name="arrow" :size="15" />
           </a>
         </div>
       </header>
@@ -357,7 +392,7 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
             :title="showPoints ? '收起点位栏' : '展开点位栏'"
             @click="togglePoints"
           >
-            {{ showPoints ? '−' : '+' }}
+            <AppIcon :name="showPoints ? 'chevronUp' : 'chevronDown'" :size="16" />
           </button>
         </div>
         <div v-if="showPoints" class="rail-body">
@@ -370,13 +405,13 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
               >
                 <span class="point-number">{{ String(index + 1).padStart(2, '0') }}</span>
                 <span class="point-name">{{ point.name }}</span>
-                <span class="point-type">{{ point.category }}</span>
+                <span class="point-type">{{ categoryLabel(point.category) }}</span>
               </button>
             </li>
           </ol>
-          <button class="camera-toggle" type="button" @click="showCameras = !showCameras">
-            {{ showCameras ? '收起机位' : '切换预置机位' }}
-            <span>↗</span>
+          <button class="camera-toggle" type="button" :aria-expanded="showCameras" @click="showCameras = !showCameras">
+            <span>{{ showCameras ? '收起机位' : '切换预置机位' }}</span>
+            <AppIcon :name="showCameras ? 'chevronUp' : 'chevronDown'" :size="16" />
           </button>
         </div>
       </aside>
@@ -384,7 +419,7 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
       <div v-if="showCameras" class="camera-popover">
         <header>
           <span class="section-kicker">CAMERA PRESETS</span>
-          <button type="button" aria-label="关闭机位列表" @click="showCameras = false">×</button>
+          <button type="button" aria-label="关闭机位列表" @click="showCameras = false"><AppIcon name="close" :size="16" /></button>
         </header>
         <button
           v-for="camera in data.cameras"
@@ -421,7 +456,7 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
             :title="showTours ? '收起路线栏' : '展开路线栏'"
             @click="toggleTours"
           >
-            {{ showTours ? '−' : '+' }}
+            <AppIcon :name="showTours ? 'chevronUp' : 'chevronDown'" :size="16" />
           </button>
         </header>
         <div v-if="showTours" class="tour-list">
@@ -490,7 +525,7 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
   inset: 0;
   overflow: hidden;
   color: var(--ivory);
-  background: #071d20;
+  background: #040d29;
 }
 
 .top-rail {
@@ -504,7 +539,7 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
   align-items: center;
   gap: 1rem;
   padding: 1rem 1.25rem 0.9rem;
-  background: linear-gradient(180deg, rgb(3 18 20 / 82%), transparent);
+  background: linear-gradient(180deg, rgb(4 13 41 / 86%), transparent);
   pointer-events: none;
 }
 
@@ -537,7 +572,7 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
   align-items: center;
   justify-content: center;
   gap: 0.7rem;
-  color: rgb(239 232 211 / 55%);
+  color: rgb(202 225 245 / 62%);
   font: 0.68rem/1 var(--font-display);
   letter-spacing: 0.2em;
 }
@@ -545,7 +580,7 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
 .motto i {
   width: 1.6rem;
   height: 1px;
-  background: rgb(217 181 101 / 40%);
+  background: rgb(0 220 246 / 38%);
 }
 
 .top-status {
@@ -561,11 +596,11 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
   align-items: center;
   gap: 0.55rem;
   margin-left: 0.6rem;
-  border: 1px solid rgb(217 181 101 / 58%);
+  border: 1px solid rgb(0 220 246 / 55%);
   padding: 0.44rem 0.66rem;
-  color: #f4e6c4;
+  color: #d6f4ff;
   background:
-    linear-gradient(135deg, rgb(217 181 101 / 16%), rgb(8 37 38 / 78%));
+    linear-gradient(135deg, rgb(0 220 246 / 14%), rgb(7 26 59 / 82%));
   box-shadow: 0 8px 24px rgb(0 10 12 / 28%);
   text-decoration: none;
   transition:
@@ -588,7 +623,7 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
 
 .admin-entry:hover {
   border-color: var(--amber);
-  background-color: rgb(217 181 101 / 15%);
+  background-color: rgb(0 220 246 / 12%);
   transform: translateY(-1px);
 }
 
@@ -596,7 +631,7 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
   width: 0.43rem;
   height: 0.43rem;
   border-radius: 50%;
-  background: #62b58d;
+  background: #2dd4bf;
   box-shadow: 0 0 0 0.25rem rgb(98 181 141 / 12%);
 }
 
@@ -608,10 +643,10 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
   left: 1.1rem;
   width: 16.2rem;
   overflow: auto;
-  border-left: 1px solid rgb(217 181 101 / 34%);
-  background: linear-gradient(90deg, rgb(3 19 21 / 82%), rgb(3 19 21 / 30%) 82%, transparent);
+  border-left: 1px solid rgb(0 220 246 / 28%);
+  background: linear-gradient(90deg, rgb(4 13 41 / 86%), rgb(4 13 41 / 34%) 82%, transparent);
   scrollbar-width: thin;
-  scrollbar-color: rgb(217 181 101 / 42%) transparent;
+  scrollbar-color: rgb(0 220 246 / 42%) transparent;
   transition:
     width 220ms cubic-bezier(0.22, 1, 0.36, 1),
     bottom 220ms ease;
@@ -629,7 +664,7 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
 .location-rail::-webkit-scrollbar-thumb,
 .tour-rail::-webkit-scrollbar-thumb {
   border-radius: 999px;
-  background: rgb(217 181 101 / 42%);
+  background: rgb(0 220 246 / 42%);
 }
 
 .rail-heading {
@@ -667,7 +702,7 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
 }
 
 .location-rail li + li {
-  border-top: 1px solid rgb(222 211 183 / 9%);
+  border-top: 1px solid rgb(120 170 215 / 10%);
 }
 
 .location-rail li button {
@@ -685,7 +720,7 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
 }
 
 .point-number {
-  color: rgb(217 181 101 / 58%);
+  color: rgb(0 220 246 / 55%);
   font: 0.63rem/1 var(--font-mono);
 }
 
@@ -697,23 +732,23 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
 }
 
 .point-type {
-  color: rgb(222 217 199 / 38%);
+  color: rgb(150 185 215 / 40%);
   font: 0.52rem/1 var(--font-mono);
 }
 
 .location-rail li button:hover,
 .location-rail li button.active {
   color: var(--amber);
-  background: linear-gradient(90deg, rgb(217 181 101 / 11%), transparent);
+  background: linear-gradient(90deg, rgb(0 220 246 / 10%), transparent);
 }
 
 .camera-toggle {
   width: calc(100% - 2rem);
   margin: 0.55rem 1rem;
-  border: 1px solid rgb(222 211 183 / 18%);
+  border: 1px solid rgb(120 170 215 / 18%);
   padding: 0.55rem 0.8rem;
-  color: #e9dfc4;
-  background: rgb(4 24 26 / 66%);
+  color: #dceeff;
+  background: rgb(5 20 54 / 70%);
   text-align: left;
   cursor: pointer;
 }
@@ -729,9 +764,9 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
   top: 9rem;
   left: 18rem;
   width: 15rem;
-  border: 1px solid rgb(222 211 183 / 20%);
+  border: 1px solid rgb(120 170 215 / 20%);
   padding: 0.8rem;
-  background: rgb(4 23 25 / 95%);
+  background: rgb(4 13 41 / 95%);
   box-shadow: 0 24px 60px rgb(0 0 0 / 38%);
   backdrop-filter: blur(18px);
 }
@@ -763,8 +798,8 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
 .collapse-button:hover,
 .rail-collapse:hover {
   color: var(--ivory);
-  border-color: rgb(217 181 101 / 48%);
-  background: rgb(217 181 101 / 8%);
+  border-color: rgb(0 220 246 / 45%);
+  background: rgb(0 220 246 / 8%);
 }
 
 .rail-collapse {
@@ -775,7 +810,7 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
   width: 1.7rem;
   height: 1.7rem;
   place-items: center;
-  border: 1px solid rgb(222 211 183 / 16%);
+  border: 1px solid rgb(120 170 215 / 16%);
   line-height: 1;
 }
 
@@ -784,7 +819,7 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
   width: 100%;
   justify-content: space-between;
   border: 0;
-  border-top: 1px solid rgb(222 211 183 / 9%);
+  border-top: 1px solid rgb(120 170 215 / 10%);
   padding: 0.65rem 0;
   color: var(--ivory);
   background: transparent;
@@ -805,11 +840,11 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
   width: 17.5rem;
   max-height: calc(100vh - 13.5rem);
   overflow: auto;
-  border-right: 1px solid rgb(217 181 101 / 34%);
+  border-right: 1px solid rgb(0 220 246 / 28%);
   padding: 0.4rem 0 0.4rem 0.8rem;
-  background: linear-gradient(270deg, rgb(3 19 21 / 82%), rgb(3 19 21 / 22%) 82%, transparent);
+  background: linear-gradient(270deg, rgb(4 13 41 / 86%), rgb(4 13 41 / 24%) 82%, transparent);
   scrollbar-width: thin;
-  scrollbar-color: rgb(217 181 101 / 42%) transparent;
+  scrollbar-color: rgb(0 220 246 / 42%) transparent;
   transition: width 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -818,9 +853,9 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
   width: 3.05rem;
   max-height: none;
   overflow: hidden;
-  border: 1px solid rgb(217 181 101 / 30%);
+  border: 1px solid rgb(0 220 246 / 26%);
   padding: 0.35rem;
-  background: rgb(4 24 26 / 90%);
+  background: rgb(5 20 54 / 92%);
   box-shadow: 0 16px 40px rgb(0 0 0 / 26%);
   backdrop-filter: blur(14px);
 }
@@ -859,7 +894,7 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
 }
 
 .tour-list article {
-  border-top: 1px solid rgb(222 211 183 / 10%);
+  border-top: 1px solid rgb(120 170 215 / 10%);
 }
 
 .tour-list article > button {
@@ -873,7 +908,7 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
 }
 
 .tour-list article > button:hover {
-  background: rgb(217 181 101 / 8%);
+  background: rgb(0 220 246 / 8%);
 }
 
 .tour-list article span {
@@ -889,16 +924,16 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
 
 .tour-list p {
   margin: 0 0 0.45rem;
-  color: rgb(222 217 199 / 62%);
+  color: rgb(160 195 225 / 66%);
   font-size: 0.69rem;
   line-height: 1.55;
 }
 
 .tour-controls {
   margin-top: 0.5rem;
-  border-top: 1px solid rgb(217 181 101 / 26%);
+  border-top: 1px solid rgb(0 220 246 / 22%);
   padding: 0.8rem 0.75rem;
-  background: rgb(4 24 26 / 72%);
+  background: rgb(5 20 54 / 76%);
 }
 
 .tour-progress {
@@ -926,7 +961,7 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
 }
 
 .tour-controls button {
-  border: 1px solid rgb(222 211 183 / 16%);
+  border: 1px solid rgb(120 170 215 / 16%);
   padding: 0.32rem 0.5rem;
   color: var(--ivory);
   background: transparent;
@@ -954,7 +989,7 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
 .notice-line p {
   max-width: 42rem;
   margin: 0;
-  color: rgb(222 217 199 / 54%);
+  color: rgb(160 195 225 / 56%);
   font-size: 0.64rem;
 }
 
@@ -969,13 +1004,13 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
 }
 
 .feedback-actions span {
-  color: rgb(222 217 199 / 45%);
+  color: rgb(160 195 225 / 48%);
   font: 0.55rem/1 var(--font-mono);
 }
 
 .feedback-actions button {
   border: 0;
-  border-bottom: 1px solid rgb(222 211 183 / 22%);
+  border-bottom: 1px solid rgb(120 170 215 / 22%);
   padding: 0.15rem 0.2rem;
   color: var(--muted);
   background: transparent;
@@ -1014,7 +1049,7 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: #071d20;
+  background: #040d29;
 }
 
 .loading-veil p {
@@ -1032,7 +1067,7 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
   position: relative;
   width: 4.5rem;
   height: 4.5rem;
-  border: 1px solid rgb(217 181 101 / 40%);
+  border: 1px solid rgb(0 220 246 / 38%);
   border-radius: 50%;
   animation: rotate 3.8s linear infinite;
 }
@@ -1040,7 +1075,7 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
 .loader-mark::after {
   position: absolute;
   inset: 0.75rem;
-  border: 1px solid rgb(217 181 101 / 70%);
+  border: 1px solid rgb(0 220 246 / 68%);
   content: '';
 }
 
@@ -1148,9 +1183,9 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
     max-height: none;
     overflow: visible;
     border-left: 0;
-    border-top: 1px solid rgb(217 181 101 / 34%);
+    border-top: 1px solid rgb(0 220 246 / 28%);
     padding-bottom: 0.35rem;
-    background: rgb(3 19 21 / 82%);
+    background: rgb(4 13 41 / 86%);
     backdrop-filter: blur(12px);
   }
 
@@ -1158,10 +1193,14 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
     bottom: auto;
   }
 
+  .location-rail.chat-open:not(.collapsed) {
+    bottom: auto;
+  }
+
   .location-rail.collapsed {
     width: 3.05rem;
     padding: 0.35rem;
-    border: 1px solid rgb(217 181 101 / 30%);
+    border: 1px solid rgb(0 220 246 / 26%);
   }
 
   .rail-heading {
@@ -1194,13 +1233,13 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
 
   .location-rail li {
     flex: 0 0 8.6rem;
-    border: 1px solid rgb(222 211 183 / 11%);
+    border: 1px solid rgb(120 170 215 / 12%);
     background: rgb(255 255 255 / 2%);
     scroll-snap-align: start;
   }
 
   .location-rail li + li {
-    border-top: 1px solid rgb(222 211 183 / 11%);
+    border-top: 1px solid rgb(120 170 215 / 12%);
   }
 
   .location-rail li button {
@@ -1225,7 +1264,7 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
     right: 0.5rem;
     width: 12.2rem;
     max-height: 40vh;
-    background: rgb(3 19 21 / 82%);
+    background: rgb(4 13 41 / 86%);
     backdrop-filter: blur(12px);
   }
 
@@ -1263,4 +1302,472 @@ async function submitFeedback(feedback: 'HELPFUL' | 'UNHELPFUL' | 'OUTDATED') {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Public experience refinement: calm glass surfaces, clear hierarchy */
+.top-rail {
+  padding: 1rem 1.35rem 1.1rem;
+  background: linear-gradient(180deg, rgb(2 8 20 / 72%), rgb(2 8 20 / 10%) 72%, transparent);
+}
+
+.brand {
+  align-items: center;
+  gap: 0.72rem;
+}
+
+.brand-mark {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  place-items: center;
+  border: 1px solid rgb(53 215 255 / 38%);
+  border-radius: 0.78rem;
+  color: #07132a;
+  background: linear-gradient(145deg, #8bf4ff, #35d7ff 48%, #5c7cfa);
+  box-shadow: 0 10px 26px rgb(53 215 255 / 18%);
+}
+
+.brand-copy {
+  display: grid;
+  gap: 0.08rem;
+}
+
+.brand-copy strong {
+  color: #f4f9ff;
+  font: 650 0.95rem/1.1 var(--font-display);
+  letter-spacing: 0.02em;
+}
+
+.brand-copy small {
+  color: #8ca2c0;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+}
+
+.motto {
+  color: rgb(198 218 242 / 64%);
+  font-size: 0.74rem;
+  letter-spacing: 0.18em;
+}
+
+.top-status {
+  gap: 0.65rem;
+  color: #9aafca;
+  font-size: 0.72rem;
+}
+
+.admin-entry {
+  min-height: 2.65rem;
+  gap: 0.48rem;
+  margin-left: 0.55rem;
+  border-color: rgb(53 215 255 / 42%);
+  border-radius: 0.78rem;
+  padding: 0.52rem 0.78rem;
+  color: #e5fbff;
+  background: linear-gradient(135deg, rgb(53 215 255 / 12%), rgb(7 26 59 / 82%));
+  box-shadow: 0 10px 26px rgb(0 6 18 / 26%);
+}
+
+.admin-entry span {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.admin-entry:hover {
+  border-color: rgb(53 215 255 / 76%);
+  background-color: rgb(53 215 255 / 12%);
+}
+
+.location-rail,
+.tour-rail {
+  border: 1px solid rgb(138 169 214 / 16%);
+  border-radius: 1.15rem;
+  background: linear-gradient(155deg, rgb(7 25 51 / 90%), rgb(2 11 25 / 91%));
+  box-shadow: 0 24px 64px rgb(0 4 16 / 28%), inset 0 1px 0 rgb(255 255 255 / 3%);
+  backdrop-filter: blur(22px);
+}
+
+.location-rail {
+  top: 6.15rem;
+  bottom: 1.4rem;
+  left: 1.25rem;
+  width: 17.2rem;
+  padding: 0.2rem 0;
+}
+
+.location-rail.chat-open:not(.collapsed) {
+  bottom: calc(min(31rem, 56vh) + 1.35rem);
+}
+
+.rail-heading {
+  padding: 1rem 3rem 0.72rem 1rem;
+}
+
+.section-kicker {
+  color: #62e4f7;
+  font-size: 0.65rem;
+  letter-spacing: 0.13em;
+}
+
+.rail-heading h1,
+.tour-rail h2 {
+  margin-top: 0.42rem;
+  font-size: 1.45rem;
+  letter-spacing: -0.02em;
+}
+
+.rail-heading small,
+.tour-rail small {
+  color: #849ab8;
+  font-size: 0.7rem;
+}
+
+.location-rail ol {
+  padding: 0 0.7rem 0.65rem;
+}
+
+.location-rail li + li {
+  border-top-color: transparent;
+}
+
+.location-rail li button {
+  min-height: 2.95rem;
+  grid-template-columns: 2.15rem minmax(0, 1fr) auto;
+  gap: 0.58rem;
+  border-radius: 0.68rem;
+  padding: 0.42rem 0.55rem;
+  transition: color 170ms var(--ease-out), background 170ms var(--ease-out), transform 170ms var(--ease-out);
+}
+
+.location-rail li button:hover,
+.location-rail li button.active {
+  color: #f0fdff;
+  background: linear-gradient(90deg, rgb(53 215 255 / 13%), rgb(92 124 250 / 5%));
+  box-shadow: inset 3px 0 0 rgb(53 215 255 / 85%);
+  transform: translateX(2px);
+}
+
+.point-number {
+  color: #6ce8f8;
+  font-size: 0.68rem;
+}
+
+.point-name {
+  font-size: 0.87rem;
+  font-weight: 500;
+}
+
+.point-type {
+  color: #8fa5c2;
+  font-size: 0.7rem;
+}
+
+.camera-toggle {
+  display: flex;
+  width: calc(100% - 1.4rem);
+  min-height: 2.8rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin: 0.55rem 0.7rem 0.7rem;
+  border-color: rgb(138 169 214 / 16%);
+  border-radius: 0.7rem;
+  padding: 0.58rem 0.75rem;
+  color: #c7d7ec;
+  background: rgb(53 215 255 / 5%);
+  font-size: 0.76rem;
+}
+
+.camera-toggle:hover {
+  border-color: rgb(53 215 255 / 30%);
+  color: #effcff;
+  background: rgb(53 215 255 / 9%);
+}
+
+.camera-toggle > .app-icon { color: #71e8f8; }
+
+.rail-collapse {
+  top: 0.85rem;
+  right: 0.75rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-color: rgb(138 169 214 / 16%);
+  border-radius: 0.65rem;
+}
+
+.camera-popover {
+  top: 8.6rem;
+  left: 19.2rem;
+  width: 16.5rem;
+  border-color: rgb(138 169 214 / 18%);
+  border-radius: 1rem;
+  padding: 0.9rem;
+  background: rgb(4 15 34 / 96%);
+  box-shadow: 0 28px 70px rgb(0 4 16 / 42%), inset 0 1px 0 rgb(255 255 255 / 3%);
+}
+
+.camera-popover header button {
+  display: grid;
+  width: 2.2rem;
+  height: 2.2rem;
+  place-items: center;
+  border: 1px solid rgb(138 169 214 / 14%);
+  border-radius: 0.55rem;
+}
+
+.camera-popover > button {
+  min-height: 2.8rem;
+  align-items: center;
+  border-top-color: rgb(138 169 214 / 11%);
+  font-size: 0.78rem;
+}
+
+.camera-popover small {
+  color: #66e3f5;
+  font-size: 0.62rem;
+}
+
+.tour-rail {
+  top: 6.15rem;
+  right: 1.25rem;
+  width: 18rem;
+  max-height: calc(100vh - 13rem);
+  padding: 0.15rem 0;
+}
+
+.tour-rail > header {
+  padding: 0.85rem 0.9rem 0.7rem 1rem;
+}
+
+.collapse-button {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  place-items: center;
+  border: 1px solid rgb(138 169 214 / 14%);
+  border-radius: 0.65rem;
+}
+
+.tour-list article {
+  border-top-color: rgb(138 169 214 / 10%);
+}
+
+.tour-list article > button {
+  min-height: 6.6rem;
+  padding: 0.95rem 0.9rem 0.95rem 1rem;
+  border-radius: 0.6rem;
+}
+
+.tour-list article > button:hover {
+  background: linear-gradient(90deg, rgb(53 215 255 / 9%), rgb(92 124 250 / 4%));
+}
+
+.tour-list article span {
+  color: #68e4f6;
+  font-size: 0.63rem;
+}
+
+.tour-list h3 {
+  margin: 0.42rem 0;
+  font-size: 1rem;
+}
+
+.tour-list p {
+  color: #9bafc9;
+  font-size: 0.77rem;
+  line-height: 1.6;
+}
+
+.tour-controls {
+  margin: 0.55rem 0.7rem 0.75rem;
+  border: 1px solid rgb(138 169 214 / 13%);
+  border-radius: 0.75rem;
+  padding: 0.8rem;
+  background: rgb(53 215 255 / 5%);
+}
+
+.tour-controls p {
+  color: #8da5c2;
+  font-size: 0.68rem;
+}
+
+.tour-controls button {
+  min-height: 2.15rem;
+  border-color: rgb(138 169 214 / 16%);
+  border-radius: 0.55rem;
+  padding: 0.4rem 0.6rem;
+  color: #b9cbe1;
+  font-size: 0.7rem;
+}
+
+.tour-controls button:hover {
+  border-color: rgb(53 215 255 / 28%);
+  color: #effcff;
+  background: rgb(53 215 255 / 8%);
+}
+
+.notice-line span {
+  color: #65e7fa;
+  font-size: 0.62rem;
+}
+
+.notice-line p {
+  color: rgb(165 190 219 / 72%);
+  font-size: 0.72rem;
+}
+
+.feedback-actions span {
+  color: #7f96b5;
+  font-size: 0.63rem;
+}
+
+.feedback-actions button {
+  min-height: 2rem;
+  border-color: rgb(138 169 214 / 20%);
+  color: #9eb3ce;
+  font-size: 0.68rem;
+}
+
+.guide-chat {
+  bottom: 1.25rem;
+  left: 1.25rem;
+  width: min(33rem, calc(100vw - 2.5rem));
+  height: min(31rem, 56vh);
+}
+
+.location-rail.collapsed,
+.tour-rail.collapsed {
+  width: 3.35rem;
+  border-color: rgb(53 215 255 / 24%);
+  border-radius: 0.9rem;
+  background: rgb(5 20 44 / 94%);
+}
+
+.location-rail.collapsed .rail-collapse,
+.tour-rail.collapsed .collapse-button {
+  width: 100%;
+  height: 2.55rem;
+}
+
+.loading-veil,
+.load-error {
+  background:
+    radial-gradient(48rem 30rem at 50% 20%, rgb(53 215 255 / 8%), transparent 68%),
+    #020817;
+}
+
+.loading-veil p {
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+}
+
+.loading-veil small {
+  color: #758cab;
+  font-size: 0.66rem;
+}
+
+.load-error span { color: #6ee9fa; font-size: 0.72rem; }
+.load-error p { color: #8ea3c0; font-size: 0.9rem; }
+
+@media (max-width: 1080px) {
+  .location-rail { width: 14.2rem; }
+  .tour-rail { width: 15.2rem; }
+  .guide-chat { width: min(30rem, calc(100vw - 2rem)); }
+  .camera-popover { left: 15.8rem; }
+  .location-rail.chat-open:not(.collapsed) {
+    bottom: calc(min(30rem, 56vh) + 1.35rem);
+  }
+}
+
+/* Short desktop viewports cannot host the route rail and the floating
+   companion side by side; fade the companion out while routes are open. */
+@media (min-width: 761px) and (max-height: 980px) {
+  .guide-shell.tours-open .avatar-companion {
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(0.9rem) scale(0.94);
+    pointer-events: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .top-rail {
+    grid-template-columns: 1fr auto;
+    padding: 0.75rem;
+  }
+
+  .brand-mark {
+    width: 2.2rem;
+    height: 2.2rem;
+    border-radius: 0.65rem;
+  }
+
+  .brand-copy strong { font-size: 0.86rem; }
+  .brand-copy small { display: none; }
+  .top-status { font-size: 0.66rem; }
+
+  .admin-entry {
+    min-height: 2.75rem;
+    padding: 0.45rem 0.62rem;
+  }
+
+  .location-rail {
+    top: 4.7rem;
+    bottom: auto;
+    left: 0.55rem;
+    width: calc(100vw - 5.8rem);
+    max-height: none;
+    overflow: visible;
+    border: 1px solid rgb(138 169 214 / 16%);
+    border-radius: 0.95rem;
+    padding: 0;
+  }
+
+  .rail-heading {
+    padding: 0.72rem 2.85rem 0.45rem 0.8rem;
+  }
+
+  .rail-heading h1 { font-size: 1.02rem; }
+  .rail-heading small { font-size: 0.62rem; }
+  .rail-collapse { top: 0.55rem; right: 0.55rem; }
+
+  .location-rail ol {
+    padding: 0 0.5rem 0.5rem;
+  }
+
+  .location-rail li {
+    flex-basis: 9.3rem;
+    border-color: rgb(138 169 214 / 13%);
+    border-radius: 0.6rem;
+    background: rgb(138 169 214 / 4%);
+  }
+
+  .location-rail li button {
+    min-height: 2.75rem;
+    grid-template-columns: 1.35rem minmax(0, 1fr);
+    padding: 0.45rem 0.55rem;
+  }
+
+  .point-name { font-size: 0.8rem; }
+
+  .camera-toggle {
+    width: calc(100% - 1rem);
+    min-height: 2.75rem;
+    margin: 0.2rem 0.5rem 0.5rem;
+    font-size: 0.7rem;
+  }
+
+  .tour-rail {
+    top: 4.7rem;
+    right: 0.55rem;
+    width: 13rem;
+    max-height: 40vh;
+    border-radius: 0.95rem;
+  }
+
+  .tour-rail h2 { font-size: 0.88rem; }
+  .camera-popover { top: 8.2rem; left: 0.55rem; }
+  .guide-chat { right: 0.55rem; bottom: 0.55rem; left: 0.55rem; width: auto; height: min(30rem, 58vh); }
+}
+
 </style>

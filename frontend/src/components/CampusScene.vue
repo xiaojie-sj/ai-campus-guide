@@ -25,6 +25,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   pointSelected: [point: PointView]
   ready: []
+  'model-ready': [fallback: boolean]
 }>()
 
 type PointDimensions = {
@@ -47,6 +48,12 @@ let controls: OrbitControls | null = null
 let frameId = 0
 let resizeObserver: ResizeObserver | null = null
 let lastLabelUpdate = 0
+let skyMaterial: THREE.ShaderMaterial | null = null
+// Bump when the Blender GLB is regenerated. The file lives in /public and is
+// not content-hashed, so without this query returning visitors could keep the
+// stale (older, untextured) model from the HTTP cache.
+const MODEL_URL = '/models/campus-buildings.glb?v=20261107b'
+let disposed = false
 const animationStartedAt = performance.now()
 const pointGroups = new Map<number, THREE.Group>()
 const pointLabels: LabelEntry[] = []
@@ -136,12 +143,12 @@ function seededRandom(seed: number) {
 function init() {
   if (!host.value) return
   scene = new THREE.Scene()
-  scene.background = new THREE.Color('#081d20')
-  scene.fog = new THREE.FogExp2('#0a2425', 0.0085)
+  scene.background = new THREE.Color('#bfe3fb')
+  scene.fog = new THREE.Fog('#d7ecfb', 110, 250)
   props.points.forEach((point, index) => pointOrder.set(point.id, index + 1))
 
   camera = new THREE.PerspectiveCamera(40, host.value.clientWidth / host.value.clientHeight, 0.1, 340)
-  camera.position.set(2, 49, 58)
+  camera.position.set(48, 22, 74)
 
   renderer = new THREE.WebGLRenderer({
     antialias: true,
@@ -152,7 +159,7 @@ function init() {
   renderer.setSize(host.value.clientWidth, host.value.clientHeight)
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.toneMapping = THREE.ACESFilmicToneMapping
-  renderer.toneMappingExposure = 1.18
+  renderer.toneMappingExposure = 1.25
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFShadowMap
   host.value.appendChild(renderer.domElement)
@@ -160,7 +167,7 @@ function init() {
   controls = new OrbitControls(camera, renderer.domElement)
   controls.enableDamping = true
   controls.dampingFactor = 0.065
-  controls.target.set(0, 2, 0)
+  controls.target.set(0, 3, -2)
   controls.minDistance = 9
   controls.maxDistance = 105
   controls.maxPolarAngle = Math.PI * 0.47
@@ -170,25 +177,23 @@ function init() {
   setupLighting()
   buildAtmosphere()
   buildGround()
-  buildTreeGrove()
-  buildRoads()
-  buildPoints()
+  // The final scene is revealed only after the Blender GLB has loaded.
+  // Rendering the procedural stand-in first causes a visible low-detail flash.
   loadBlenderBuildings()
   renderer.domElement.addEventListener('pointerdown', onPointerDown)
   renderer.domElement.addEventListener('pointerup', onPointerUp)
   resizeObserver = new ResizeObserver(resize)
   resizeObserver.observe(host.value)
   animate()
-  emit('ready')
 }
 
 function setupLighting() {
   if (!scene) return
-  const hemisphere = new THREE.HemisphereLight('#c4f3ea', '#071511', 1.65)
+  const hemisphere = new THREE.HemisphereLight('#dcefff', '#a9c094', 2.35)
   scene.add(hemisphere)
 
-  const sun = new THREE.DirectionalLight('#ffd9a3', 3.25)
-  sun.position.set(-22, 38, 20)
+  const sun = new THREE.DirectionalLight('#fff2d5', 3.4)
+  sun.position.set(-28, 52, 22)
   sun.castShadow = true
   sun.shadow.mapSize.set(2048, 2048)
   sun.shadow.camera.left = -46
@@ -201,57 +206,104 @@ function setupLighting() {
   sun.shadow.normalBias = 0.04
   scene.add(sun)
 
-  const fill = new THREE.DirectionalLight('#7cc8bc', 1.15)
-  fill.position.set(26, 14, -18)
+  const fill = new THREE.DirectionalLight('#cfe6ff', 1.0)
+  fill.position.set(30, 20, -24)
   scene.add(fill)
 
-  const rim = new THREE.DirectionalLight('#f2b65b', 0.9)
-  rim.position.set(8, 12, 30)
+  const rim = new THREE.DirectionalLight('#ffe6bd', 0.7)
+  rim.position.set(8, 14, 34)
   scene.add(rim)
 }
 
 function buildAtmosphere() {
   if (!scene) return
-  const sky = new THREE.Mesh(
-    new THREE.SphereGeometry(170, 32, 18),
-    new THREE.ShaderMaterial({
-      uniforms: {
-        topColor: { value: new THREE.Color('#102f34') },
-        horizonColor: { value: new THREE.Color('#0a2226') },
-        bottomColor: { value: new THREE.Color('#061316') },
-      },
-      vertexShader: `
-        varying vec3 vWorldPosition;
-        void main() {
-          vec4 worldPosition = modelMatrix * vec4(position, 1.0);
-          vWorldPosition = worldPosition.xyz;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  const material = new THREE.ShaderMaterial({
+    uniforms: {
+      topColor: { value: new THREE.Color('#3c8fdc') },
+      horizonColor: { value: new THREE.Color('#cfe9fb') },
+      bottomColor: { value: new THREE.Color('#eef7fb') },
+      sunColor: { value: new THREE.Color('#fff6dd') },
+      uTime: { value: 0 },
+    },
+    vertexShader: `
+      varying vec3 vWorldPosition;
+      void main() {
+        vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+        vWorldPosition = worldPosition.xyz;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 topColor;
+      uniform vec3 horizonColor;
+      uniform vec3 bottomColor;
+      uniform vec3 sunColor;
+      uniform float uTime;
+      varying vec3 vWorldPosition;
+
+      float hash21(vec2 p) {
+        p = fract(p * vec2(123.34, 456.21));
+        p += dot(p, p + 45.32);
+        return fract(p.x * p.y);
+      }
+
+      float noise21(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        vec2 u = f * f * (3.0 - 2.0 * f);
+        return mix(
+          mix(hash21(i), hash21(i + vec2(1.0, 0.0)), u.x),
+          mix(hash21(i + vec2(0.0, 1.0)), hash21(i + vec2(1.0, 1.0)), u.x),
+          u.y
+        );
+      }
+
+      float fbm(vec2 p) {
+        float value = 0.0;
+        float amplitude = 0.5;
+        for (int i = 0; i < 5; i++) {
+          value += amplitude * noise21(p);
+          p = p * 2.03 + vec2(17.1, 9.2);
+          amplitude *= 0.5;
         }
-      `,
-      fragmentShader: `
-        uniform vec3 topColor;
-        uniform vec3 horizonColor;
-        uniform vec3 bottomColor;
-        varying vec3 vWorldPosition;
-        void main() {
-          float h = normalize(vWorldPosition).y;
-          vec3 lower = mix(bottomColor, horizonColor, smoothstep(-0.12, 0.18, h));
-          vec3 color = mix(lower, topColor, smoothstep(0.12, 0.82, h));
-          gl_FragColor = vec4(color, 1.0);
-        }
-      `,
-      side: THREE.BackSide,
-      depthWrite: false,
-    }),
-  )
+        return value;
+      }
+
+      void main() {
+        vec3 dir = normalize(vWorldPosition);
+        float h = clamp(dir.y, -0.15, 1.0);
+        vec3 sky = mix(bottomColor, horizonColor, smoothstep(-0.12, 0.06, h));
+        sky = mix(sky, topColor, smoothstep(0.02, 0.72, h));
+
+        float sunGlow = pow(max(dot(dir, normalize(vec3(-0.45, 0.55, 0.35))), 0.0), 48.0);
+        sky += sunColor * sunGlow * 0.35;
+
+        vec2 cloudUv = dir.xz / max(h + 0.22, 0.16);
+        cloudUv = cloudUv * 0.55 + vec2(uTime * 0.0065, uTime * 0.0022);
+        float cloudNoise = fbm(cloudUv * 2.1);
+        float cloudMask = smoothstep(0.40, 0.56, cloudNoise);
+        cloudMask *= smoothstep(0.003, 0.07, h);
+        cloudMask *= 0.9;
+        vec3 cloudShade = mix(vec3(0.80, 0.87, 0.96), vec3(1.55, 1.55, 1.58), smoothstep(0.52, 0.82, cloudNoise));
+        sky = mix(sky, cloudShade, cloudMask);
+
+        gl_FragColor = vec4(sky, 1.0);
+      }
+    `,
+    side: THREE.BackSide,
+    depthWrite: false,
+  })
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(170, 40, 24), material)
+  sky.renderOrder = -10
   scene.add(sky)
+  skyMaterial = material
 
   const haze = new THREE.Mesh(
     new THREE.CircleGeometry(68, 64),
     new THREE.MeshBasicMaterial({
-      color: '#2e6962',
+      color: '#d9ecf5',
       transparent: true,
-      opacity: 0.08,
+      opacity: 0.1,
       depthWrite: false,
     }),
   )
@@ -267,18 +319,18 @@ function getGroundTexture() {
   canvas.width = 1024
   canvas.height = 1024
   const ctx = canvas.getContext('2d')!
-  ctx.fillStyle = '#173c33'
+  ctx.fillStyle = '#7fa866'
   ctx.fillRect(0, 0, 1024, 1024)
   const random = seededRandom(421)
   for (let i = 0; i < 18000; i++) {
-    const shade = 38 + Math.floor(random() * 34)
-    const alpha = 0.018 + random() * 0.06
-    ctx.fillStyle = `rgba(${shade - 10}, ${shade + 30}, ${shade + 10}, ${alpha})`
+    const shade = 118 + Math.floor(random() * 52)
+    const alpha = 0.02 + random() * 0.06
+    ctx.fillStyle = `rgba(${shade - 26}, ${shade + 18}, ${shade - 34}, ${alpha})`
     const size = 0.5 + random() * 2.1
     ctx.fillRect(random() * 1024, random() * 1024, size, size)
   }
   for (let i = 0; i < 80; i++) {
-    ctx.strokeStyle = `rgba(104, 145, 114, ${0.02 + random() * 0.03})`
+    ctx.strokeStyle = `rgba(58, 100, 56, ${0.02 + random() * 0.035})`
     ctx.lineWidth = 1
     ctx.beginPath()
     ctx.arc(random() * 1024, random() * 1024, 30 + random() * 110, 0, Math.PI * 2)
@@ -338,7 +390,7 @@ function buildGround() {
     new THREE.PlaneGeometry(140, 140),
     new THREE.MeshStandardMaterial({
       map: getGroundTexture(),
-      color: '#b2c6aa',
+      color: '#ffffff',
       roughness: 0.98,
       metalness: 0,
     }),
@@ -354,10 +406,10 @@ function buildGround() {
     const patch = new THREE.Mesh(
       new THREE.CircleGeometry(radius, 44),
       new THREE.MeshStandardMaterial({
-        color: i % 3 === 0 ? '#1a4337' : '#1e493c',
+        color: i % 3 === 0 ? '#5f8f4e' : '#679a55',
         roughness: 1,
         transparent: true,
-        opacity: 0.36,
+        opacity: 0.28,
       }),
     )
     patch.rotation.x = -Math.PI / 2
@@ -810,7 +862,7 @@ function createFootprintBuilding(building: CampusBuildingView, point?: PointView
   geometry.computeVertexNormals()
 
   const material = new THREE.MeshStandardMaterial({
-    color: building.colorHex || '#6D8E7D',
+    color: building.colorHex || '#4C7FB8',
     roughness: 0.82,
     metalness: 0.08,
   })
@@ -847,25 +899,6 @@ function createFootprintBuilding(building: CampusBuildingView, point?: PointView
   return group
 }
 
-function clearProceduralScene() {
-  for (const part of proceduralSceneParts) {
-    part.removeFromParent()
-    disposeObject(part)
-  }
-  proceduralSceneParts.length = 0
-}
-
-function removeProceduralPointMeshes() {
-  for (const group of pointGroups.values()) {
-    for (const child of [...group.children]) {
-      if (!(child as THREE.Sprite).isSprite) {
-        child.removeFromParent()
-        disposeObject(child)
-      }
-    }
-  }
-}
-
 function fitPointLabels(root: THREE.Object3D) {
   root.updateWorldMatrix(true, true)
   const boxes: THREE.Box3[] = []
@@ -898,22 +931,63 @@ function fitPointLabels(root: THREE.Object3D) {
   }
 }
 
+function buildPointMarkers() {
+  if (!scene) return
+  for (const point of props.points) {
+    const group = new THREE.Group()
+    const footprint = props.buildings.find((building) => building.pointId === point.id)
+    if (footprint && footprint.footprint.length) {
+      group.position.set(
+        footprint.footprint.reduce((sum, value) => sum + value[0], 0) / footprint.footprint.length,
+        0,
+        footprint.footprint.reduce((sum, value) => sum + value[1], 0) / footprint.footprint.length,
+      )
+    } else {
+      const display = visualPosition(point)
+      group.position.set(display.x, 0, display.z)
+    }
+    const dims = pointDimensions(point)
+    const label = createLabel(point)
+    label.position.y =
+      point.category === 'SPORTS' ? 2.7 : point.category === 'GATE' ? 7.4 : dims.h + 2.55
+    group.add(label)
+    pointLabels.push({
+      pointId: point.id,
+      sprite: label,
+      order: pointOrder.get(point.id) ?? 99,
+    })
+    group.userData.pointId = point.id
+    group.userData.pointName = point.name
+    pointGroups.set(point.id, group)
+    scene.add(group)
+  }
+}
+
+function buildFallbackCampus() {
+  buildTreeGrove()
+  buildRoads()
+  buildPoints()
+}
+
+function revealModel(fallback: boolean) {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if (disposed) return
+      emit('model-ready', fallback)
+      emit('ready')
+    })
+  })
+}
+
 function loadBlenderBuildings() {
   if (!scene) return
   new GLTFLoader().load(
-    '/models/campus-buildings.glb',
+    MODEL_URL,
     (gltf) => {
-      for (const part of proceduralBuildingParts) {
-        part.removeFromParent()
-        disposeObject(part)
-      }
-      proceduralBuildingParts.length = 0
-      clearProceduralScene()
-      removeProceduralPointMeshes()
+      if (!scene || disposed) return
       gltf.scene.traverse((object) => {
         const pointId = Number(object.userData.pointId)
         if (pointId > 0) object.userData.pointId = pointId
-        object.userData.proceduralBuilding = undefined
         const drawable = object as THREE.Mesh
         if (drawable.isMesh) {
           drawable.castShadow = true
@@ -921,12 +995,16 @@ function loadBlenderBuildings() {
         }
       })
       gltf.scene.name = 'BlenderCampusBuildings'
-      scene?.add(gltf.scene)
+      scene.add(gltf.scene)
+      buildPointMarkers()
       fitPointLabels(gltf.scene)
+      revealModel(false)
     },
     undefined,
     () => {
-      // The procedural campus remains available if the optional GLB is missing.
+      if (!scene || disposed) return
+      buildFallbackCampus()
+      revealModel(true)
     },
   )
 }
@@ -1478,7 +1556,7 @@ function createSportsField(group: THREE.Group, point: PointView) {
   const flag = new THREE.Mesh(
     new THREE.PlaneGeometry(1.1, 0.66),
     new THREE.MeshStandardMaterial({
-      color: point.colorHex || '#d9b465',
+      color: point.colorHex || '#4974eb',
       side: THREE.DoubleSide,
       roughness: 0.8,
     }),
@@ -1660,7 +1738,7 @@ function setCamera(preset: CameraView) {
 function resetCamera() {
   const overview = props.cameras.find((item) => item.key === 'overview')
   if (overview) setCamera(overview)
-  else flyTo(new THREE.Vector3(2, 49, 58), new THREE.Vector3(0, 2, -2))
+  else flyTo(new THREE.Vector3(48, 22, 74), new THREE.Vector3(0, 3, -2))
 }
 
 function flyTo(position: THREE.Vector3, target: THREE.Vector3) {
@@ -1862,6 +1940,7 @@ function updateCameraFlight(now: number) {
 }
 
 function updateAnimatedScene(time: number, now: number) {
+  if (skyMaterial) skyMaterial.uniforms.uTime.value = time
   if (highlight) {
     const active = now < highlight.until
     const ringMaterial = highlight.ring.material as THREE.MeshBasicMaterial
@@ -2002,6 +2081,7 @@ function disposeObject(root: THREE.Object3D) {
 
 onMounted(init)
 onBeforeUnmount(() => {
+  disposed = true
   cancelAnimationFrame(frameId)
   resizeObserver?.disconnect()
   renderer?.domElement.removeEventListener('pointerdown', onPointerDown)
@@ -2013,8 +2093,11 @@ onBeforeUnmount(() => {
   pointLabels.length = 0
   proceduralBuildingParts.length = 0
   pointGroups.clear()
+  skyMaterial = null
+  scene = null
   renderer?.dispose()
   renderer?.domElement.remove()
+  renderer = null
 })
 
 defineExpose({
@@ -2047,8 +2130,7 @@ defineExpose({
   position: absolute;
   inset: 0;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 52% 42%, #153a3b 0%, #081d20 62%, #061517 100%);
+  background: linear-gradient(180deg, #62a9e6 0%, #cfe9fb 62%, #eef7fb 100%);
 }
 
 .campus-scene :deep(canvas) {
@@ -2071,12 +2153,12 @@ defineExpose({
 
 .scene-vignette {
   background:
-    linear-gradient(180deg, rgb(3 16 18 / 34%) 0%, transparent 22%, transparent 72%, rgb(3 16 18 / 53%) 100%),
-    radial-gradient(circle at 56% 42%, transparent 0 38%, rgb(2 16 18 / 32%) 100%);
+    linear-gradient(180deg, rgb(120 175 220 / 10%) 0%, transparent 22%, transparent 80%, rgb(24 70 120 / 16%) 100%),
+    radial-gradient(circle at 56% 42%, transparent 0 52%, rgb(90 130 160 / 12%) 100%);
 }
 
 .scene-grain {
-  opacity: 0.12;
+  opacity: 0.05;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.3'/%3E%3C/svg%3E");
   mix-blend-mode: soft-light;
 }
@@ -2097,7 +2179,7 @@ defineExpose({
   position: absolute;
   width: 4px;
   height: 4px;
-  border-color: #f4e7c7;
+  border-color: #8fe8ff;
   border-style: solid;
   content: '';
 }
@@ -2116,7 +2198,7 @@ defineExpose({
 
 .scene-crosshair span {
   position: absolute;
-  background: #f4e7c7;
+  background: #8fe8ff;
 }
 
 .scene-crosshair span:first-child {

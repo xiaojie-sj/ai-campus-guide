@@ -25,9 +25,10 @@ public class TraceIdFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         String incoming = request.getHeader(HEADER);
-        String traceId = incoming == null || incoming.isBlank()
+        String sanitized = incoming == null ? "" : incoming.replaceAll("[^a-zA-Z0-9_-]", "");
+        String traceId = sanitized.isBlank()
                 ? UUID.randomUUID().toString().replace("-", "")
-                : incoming.replaceAll("[^a-zA-Z0-9_-]", "").substring(0, Math.min(64, incoming.length()));
+                : sanitized.substring(0, Math.min(64, sanitized.length()));
         MDC.put("traceId", traceId);
         response.setHeader(HEADER, traceId);
         try {
@@ -37,3 +38,4 @@ public class TraceIdFilter extends OncePerRequestFilter {
         }
     }
 }
+

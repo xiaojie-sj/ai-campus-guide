@@ -20,11 +20,18 @@ public class AuditService {
     public void record(Long adminUserId, String action, String targetType, String targetId, String detail) {
         AuditLog log = new AuditLog();
         log.setAdminUserId(adminUserId);
-        log.setAction(action);
-        log.setTargetType(targetType);
-        log.setTargetId(targetId);
-        log.setDetail(detail);
+        log.setAction(truncate(action, 80));
+        log.setTargetType(truncate(targetType, 80));
+        log.setTargetId(truncate(targetId, 100));
+        log.setDetail(truncate(detail, 2000));
         log.setCreatedAt(LocalDateTime.now());
         auditLogMapper.insert(log);
+    }
+
+    private String truncate(String value, int maxLength) {
+        if (value == null) {
+            return null;
+        }
+        return value.length() <= maxLength ? value : value.substring(0, maxLength);
     }
 }

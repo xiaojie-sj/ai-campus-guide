@@ -73,7 +73,7 @@ public class OpenApiConfig {
 
                                 - 公开接口无需认证。
                                 - 管理接口需要 JWT：先调用 POST /api/auth/login，再点击右上角 Authorize 填入 token。
-                                - 演示账号：admin / editor / reviewer / analyst，密码均为 Demo@123。
+                                - 浏览器端登录态保存在 HttpOnly Cookie 中，生产环境请关闭接口文档。
                                 """))
                 .components(new Components().addSecuritySchemes(BEARER_AUTH,
                         new SecurityScheme()
@@ -113,3 +113,4 @@ public class OpenApiConfig {
         };
     }
 }
+

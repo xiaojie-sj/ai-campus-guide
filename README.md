@@ -283,6 +283,8 @@ npm run dev
 
 > **演示账号**：`admin`、`editor`、`reviewer`、`analyst`，密码均为 `Demo@123`。
 > 上线前必须修改密码与 JWT 密钥。
+>
+> 演示模式还会幂等写入最近 14 天的模拟对话样本（约 1,200 条），用于填充数据大屏的趋势、意图与热门点位；`APP_DEMO_MODE=false` 时不会生成。
 
 ### 分开运行（推荐日常开发）
 
@@ -329,7 +331,7 @@ scripts\start-frontend.ps1 -Port 5174 -ApiTarget http://localhost:9080
 
 ## 数据库
 
-系统以 **PostgreSQL（含 PostGIS / pgRouting / pgvector）** 作为唯一运行时数据库。仓库只保留一套 Flyway 迁移（`backend/src/main/resources/db/migration`，V1–V8），启动时自动执行；H2 仅以 `test` 作用域存在于单元测试中，不参与运行。
+系统以 **PostgreSQL（含 PostGIS / pgRouting / pgvector）** 作为唯一运行时数据库。仓库只保留一套 Flyway 迁移（`backend/src/main/resources/db/migration`，V1–V10），启动时自动执行；H2 仅以 `test` 作用域存在于单元测试中，不参与运行。
 
 ### 启动数据库
 
@@ -424,6 +426,7 @@ CREATE EXTENSION vector;
 | 内容管理 | `GET/POST/PUT/DELETE` | `/api/admin/knowledge` | 知识库文档上传、发布、重建索引 |
 | 内容管理 | `GET/PUT` | `/api/admin/configs` | 系统参数 |
 | 数据分析 | `GET` | `/api/admin/stats` | 运营统计 |
+| 数据大屏 | `GET` | `/api/admin/dashboard` | 三维态势与 14 张业务表实时聚合快照 |
 | 数据分析 | `GET` | `/api/admin/chat-logs` | 问答日志 |
 | 数据分析 | `GET` | `/api/admin/audit-logs` | 审计日志 |
 
@@ -464,10 +467,19 @@ cd backend
 ./mvnw test          # Windows: .\mvnw.cmd test
 ```
 
+```powershell
+# 管理端 API + 安全回归（110 项断言）
+pwsh -NoProfile -File scripts/test-admin.ps1
+
+# 可选：登录锁定、公开接口限流、超大文件
+pwsh -NoProfile -File scripts/test-admin.ps1 -IncludeRateLimit -IncludeLargeFile
+```
+
 覆盖重点：
 
-- 前端：侧栏折叠/互斥切换、聊天气泡渲染、数字人状态机。
-- 后端：意图识别、文本切块、本地向量、A\* 路径规划、OpenAPI 文档生成、接口文档禁用开关。
+- 前端：侧栏折叠/互斥切换、聊天气泡渲染、数字人状态机、登录跳转安全、三维场景刷新不闪回降级地图。
+- 后端：意图识别、文本切块、本地向量、A\* 路径规划、OpenAPI 文档生成、接口文档禁用开关、Cookie 会话撤销、CSRF、角色越权矩阵、知识库 TXT/PDF/DOCX 导入与发布流程。
+- 完整手工验收步骤、账号权限矩阵、知识库测试数据与清理 SQL 见 [docs/05-testing/admin-test-cases.md](docs/05-testing/admin-test-cases.md)。
 
 ---
 
@@ -569,7 +581,11 @@ java -jar target/campus-guide-1.0.0.jar
 生产环境务必设置：
 
 ```bash
-APP_JWT_SECRET=<32+ 字符随机串>
+APP_DEMO_MODE=false                       # 关闭演示账号与演示知识库初始化
+APP_SEED_DEMO_DATA=false                  # 双保险：即使误开 demo-mode 也不写入演示账号
+APP_JWT_SECRET=<32+ 字符随机串>            # 非 demo 模式下仍使用默认值会拒绝启动
+APP_COOKIE_SECURE=true                    # 仅在 HTTPS 下发送管理会话 Cookie
+APP_COOKIE_SAME_SITE=Strict               # 跨站部署时改为 None 并必须启用 HTTPS
 APP_CORS_ORIGIN=https://guide.example.edu.cn
 KNIFE4J_ENABLED=false
 POSTGRES_PASSWORD=<强密码>
@@ -577,6 +593,22 @@ PG_PORT=5432
 AI_ENABLED=true
 AI_API_KEY=<your-key>
 ```
+
+> 管理端登录态使用 `HttpOnly + SameSite=Strict` Cookie，前端不再把令牌写入 `localStorage`。所有 `/admin/**` 路径在进入前都会调用 `/api/auth/me` 做服务端校验，未登录或令牌失效统一跳转 `/admin/login`；登录后的 `redirect` 参数只允许站内 `/admin/**` 路径，避免开放重定向。
+
+### 安全基线
+
+- **默认拒绝**：`/api/admin/**` 的每个处理器必须显式标注 `@RequireRole`，没有标注的接口直接返回 403。
+- **角色以数据库为准**：JWT 只用于确认身份，角色、启用状态和令牌版本每次请求都从 `admin_user` 复核；改角色、停用账号或退出登录会立即让旧令牌失效。
+- **登录防爆破**：同一账号 + IP、同一 IP 在窗口期内连续失败会触发临时锁定；未知账号也会执行 BCrypt 比对，降低用户名枚举的时序差异。
+- **CSRF 防护**：Cookie 会话的非 GET 请求校验 `Origin` / `Referer` 与 `Sec-Fetch-Site`，同时使用 `SameSite=Strict`。
+- **公开接口限流**：`/api/public/chat`、`/feedback`、`/asr`、`/tts` 按 IP 做固定窗口限流，避免刷问答和语音接口造成成本或资源耗尽。
+- **上传校验**：知识库文件同时校验扩展名与文件头签名，文件名不使用用户输入落盘，来源链接只允许 `http/https`。
+- **反馈防越权**：公开反馈必须同时提交会话 ID，服务端校验该对话属于当前会话，避免枚举 `chatLogId` 篡改他人反馈。
+- **响应头**：API 返回 `X-Content-Type-Options`、`X-Frame-Options: DENY`、`Referrer-Policy`、`Permissions-Policy`，管理接口禁用缓存。
+- **生产部署**：建议在 Nginx/Caddy 上补充 HSTS、CSP、请求体大小限制与边缘限流，并保持 `KNIFE4J_ENABLED=false`；后端在 `APP_DEMO_MODE=false` 时会对默认数据库密码、仍开启的接口文档和未改密的演示账号输出 `SECURITY` 错误日志。
+
+前端生产构建会自动隐藏演示账号提示；如需在本地预览生产行为，可执行 `VITE_DEMO_MODE=false npm run build`。
 
 ---
 
@@ -650,3 +682,6 @@ AI_API_KEY=<your-key>
 <div align="center">
 <sub>湖北工程学院新技术学院 · 校园数字导览演示项目</sub>
 </div>
+
+
+
